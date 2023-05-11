@@ -1,0 +1,217 @@
+esphome:
+  name: hall
+  platformio_options:
+    board_build.f_cpu: 80000000L
+  on_boot:
+    then:
+        - ds1307.read_time:
+
+esp32:
+  board: esp32dev
+#  framework:
+#    type: esp-idf
+
+wifi:
+  ssid: "MiMikalai"
+  password: "123123123"
+  reboot_timeout: 0s
+  ap:
+    ssid: "hall"
+    password: "123123123"
+    ap_timeout: 20s
+#  power_save_mode: HIGH
+
+#captive_portal:
+
+# Enable logging
+logger:
+  #level: VERBOSE
+  #level: INFO
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+#  local: true
+  ota: false
+  version: 2
+  js_include: "www.js"
+  #js_url: "test.js"
+
+#status_led:
+#  pin:
+#    number: GPIO2
+#    inverted: false
+
+script:
+  - id: get_current_date
+    then:
+      - lambda: |-    
+          time_t now;
+          char strftime_buf[64];
+          struct tm timeinfo;
+
+          std::time(&now);
+
+          //struct tm *tt = gmtime(&now);
+          //strftime(strftime_buf, sizeof(strftime_buf), "%c", tt);
+          //ESP_LOGI("main", "The current UTC date/time is: %s", strftime_buf);
+
+          localtime_r(&now, &timeinfo);
+          strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
+          ESP_LOGI("main", "The current local date/time is: %s", strftime_buf);
+
+  - id: get_ole_date
+    then:
+      - lambda: |-    
+          time_t now;
+          std::time(&now);
+          float f = now / 60.0 / 60.0 / 24.0 + 25569.0;
+          ESP_LOGD("main", "The OLE date/time is: %.5f", f);
+          
+          auto call = id(ole_date).make_call();
+          call.set_value(f);
+          call.perform();
+
+number:
+    #OLE Automation date format
+    #OLE_TIME_ZERO = datetime.datetime(1899, 12, 30, 0, 0, 0)
+  - platform: template
+    id: ole_date
+    name: "OLE Date"
+    optimistic: true
+    mode: box
+    #1-1-1970 (POSIX)
+    min_value: 25569
+    #1-1-2040
+    max_value: 51136
+    #1.0 / 24 / 60 / 60 = (1/86400) = 1 sec
+    step: 0.00001
+    update_interval: never
+    on_value:
+      then:
+        - lambda: |-
+            if (id(ole_date).state <= 45050)
+              return;
+            unsigned int days = trunc(id(ole_date).state);
+            unsigned int secs = (id(ole_date).state - trunc(id(ole_date).state)) * 24.0 * 60.0 * 60.0;
+            time_t t = (unsigned int)((days - 25569) * 60 * 60 * 24 + secs);
+            struct timeval nows = { .tv_sec = t };
+            settimeofday(&nows, NULL);
+        - script.execute: get_current_date
+        - script.execute: get_ole_date
+        #- ds1307.write_time:
+
+i2c:
+  sda: GPIO14
+  scl: GPIO12
+  scan: true
+  id: bus_a
+  frequency: 100kHz
+
+output:
+  - platform: ledc
+    pin:
+      number: GPIO2
+      inverted: false
+    id: build_led
+
+  - platform: gpio
+    id: 'power_supply1'
+    pin: GPIO27
+    inverted: true
+
+light:
+  - platform: monochromatic
+    output: build_led
+    name: "Onboard led"
+    id: light_1
+    effects:
+      - pulse:
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+      - pulse:
+          name: "Slow Pulse"
+          # transition_length: 1s      # defaults to 1s
+          update_interval: 2s
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      inverted: true
+    filters:
+      - delayed_on: 50ms
+    name: "Boot button"
+    on_click: 
+      then:
+        - ds1307.read_time:
+#        - script.execute: get_current_date
+
+# Individual sensors
+sensor:   
+  - platform: uptime
+    name: Uptime Sensor
+    update_interval: 5min
+
+  - platform: esp32_hall
+    name: "ESP32 Hall Sensor"
+    update_interval: 100s
+
+time:
+  - platform: ds1307
+    id: ds1307_time
+    update_interval: never
+
+  - platform: sntp
+    id: sntp_time
+    on_time_sync:
+      if:
+        condition:
+          wifi.connected:
+        then:
+          - logger.log: "!!!!!!!!!!!!!!!!!Synchronized clock!!!!!!!!!!!"
+          - ds1307.write_time:
+
+select:
+  - platform: template
+    name: Mode
+    id: mode
+    options:
+      - "Option1"
+      - "Option2"
+      - "Option3"
+#    initial_option: "OFF"
+    optimistic: true
+    set_action:
+      - logger.log:
+          format: "Chosen option: %s"
+          args: ["x.c_str()"]
+
+lock:
+  - platform: template
+    name: Lock comp
+    optimistic: true
+    on_lock:
+    - logger.log: "Door Locked!"
+    on_unlock:
+    - logger.log: "Door Unlocked!"          
+
+text_sensor:
+  - platform: template
+    id: systime
+    name: "Systime"
+    update_interval: 60s
+    lambda: |-
+      char str[32];
+      time_t currTime = id(sntp_time).now().timestamp;
+      strftime(str, sizeof(str), "%d-%m-%Y %H:%M:%S", localtime(&currTime));
+      return (std::string) str;
+
