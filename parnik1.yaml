@@ -1,0 +1,87 @@
+esphome:
+  name: parnik1
+  platformio_options:
+    board_build.f_cpu: 80000000L   
+    board_build.flash_mode: dio
+
+esp32:
+  board: lolin_c3_mini
+#  framework:
+#    type: esp-idf  
+
+#deep_sleep:
+  #run_duration: 20s
+  #sleep_duration: 10min  
+
+# Enable logging
+logger:
+#  level: VERBOSE
+#  hardware_uart: USB_SERIAL_JTAG
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  networks:
+  - ssid: "Nadtocheeva 5"
+    password: "123123123"
+  - ssid: "Nadtocheeva 5_plus"
+    password: "123123123"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+#  ap:
+#    ssid: "Luatos Fallback Hotspot"
+#    password: "123123123"
+
+web_server:
+  port: 80
+  #include_internal: false
+  ota: false
+  version: 2
+  js_include: "www.js"
+  js_url: ""
+
+#status_led:
+#  pin:
+#    number: D4
+#    inverted: true
+
+i2c:
+  sda: GPIO4
+  scl: GPIO5
+  scan: false
+  id: bus_a
+  frequency: 100khz
+
+sensor:
+  - platform: htu21d
+    temperature:
+      name: "Temperature"
+    humidity:
+      name: "Humidity"
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    update_interval: 60s
+
+  - platform: adc
+    pin: GPIO0
+    name: "Battery voltage"
+    attenuation: 0db
+    #raw: true
+    filters:
+      - multiply: 6
+    update_interval: 60s
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO9
+      inverted: true
+    name: "BOOT button"
+    
