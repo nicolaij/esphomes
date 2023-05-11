@@ -1,0 +1,122 @@
+esphome:
+  name: regulator-vanna
+
+esp32:
+  board: esp32-c3-devkitm-1
+
+wifi:
+  ap:
+    ssid: "Regulator-Vanna"
+    password: "123123123"
+  reboot_timeout: 0s
+  power_save_mode: HIGH
+
+# Enable logging
+logger:
+  level: debug
+
+# Enable Home Assistant API
+#api:
+
+#ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+  local: true
+  #version: 1
+
+#status_led:
+#  pin:
+#    number: D1
+#    inverted: no
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO9
+      inverted: true
+    filters:
+      - delayed_on: 50ms
+    name: "Switch button"
+
+dallas:
+  - pin: GPIO10
+    update_interval: 30s
+
+# Individual sensors
+sensor:   
+  - platform: uptime
+    name: Uptime Sensor
+    update_interval: 5min
+  
+  - platform: dallas
+    name: "Temperature"
+    address: 0x7f04159053c4ff28
+    id: temp_1
+
+switch:
+  - platform: gpio
+    pin:
+       number: GPIO7
+    id: relay1
+    on_turn_on:
+      - switch.turn_on: led1
+    on_turn_off:
+      - switch.turn_off: led1
+  
+  - platform: gpio
+    pin:
+      number: GPIO6
+    id: relay_power
+
+  - platform: gpio
+    pin:
+      number: GPIO18
+    id: led1
+
+  - platform: gpio
+    pin:
+      number: GPIO19
+    id: led2
+
+output:
+  - platform: ledc
+    pin: GPIO3
+    id: out_red
+  - platform: ledc
+    pin: GPIO4
+    id: out_green
+  - platform: ledc
+    pin: GPIO5
+    id: out_blue
+
+light:
+  - platform: rgb
+    name: "RGB led"
+    red: out_red
+    green: out_green
+    blue: out_blue
+
+climate:
+  - platform: bang_bang
+    name: "Bang Bang Climate Controller"
+    sensor: temp_1
+    default_target_temperature_low: 40 °C
+    default_target_temperature_high: 40.5 °C
+    id: regul
+    heat_action:
+      - switch.turn_on: relay1
+      - switch.turn_on: relay_power
+      - delay: 100ms
+      - switch.turn_off: relay_power
+    idle_action:
+      - switch.turn_off: relay1
+    visual:
+      min_temperature: 30
+      max_temperature: 43
+      temperature_step:
+        target_temperature: 0.5
+        current_temperature: 0.1
+         
+
