@@ -21,6 +21,13 @@ logger:
 # Enable Home Assistant API
 api:
   password: ""
+  reboot_timeout: 0s
+
+mqtt:
+  broker: dev.rightech.io
+  port: 1883
+  client_id: mqtt-test_15udi-2pgeuh
+  reboot_timeout: 0s
 
 ota:
   password: ""
@@ -77,6 +84,10 @@ sensor:
     filters:
       - multiply: 6
     update_interval: 60s
+
+  - platform: uptime
+    name: Uptime Sensor
+    update_interval: 5min
 
 binary_sensor:
   - platform: gpio

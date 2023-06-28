@@ -1,0 +1,394 @@
+esphome:
+  name: encoder
+  platform: ESP32
+  board: nodemcu-32s
+  platformio_options:
+    upload_speed: 921600
+
+wifi:
+  ssid: "Test"
+  password: "123123123"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "encoder Fallback Hotspot"
+    password: "123123123"
+  reboot_timeout: 0s
+#  power_save_mode: HIGH
+
+captive_portal:
+
+# Enable logging
+logger:
+  level: DEBUG #VERBOSE
+    
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+#  local: true
+  ota: false
+  version: 2
+  js_include: "www.js"
+
+binary_sensor:
+  - platform: gpio
+    name: "Boot"
+    pin:
+      number: GPIO0
+      inverted: true
+      mode: INPUT_PULLUP
+  - platform: gpio
+    pin:
+      number: GPIO5
+      inverted: true
+      mode: INPUT_PULLUP
+    name: "Encoder1 button"
+    on_click:
+      min_length: 50ms
+      max_length: 350ms
+      then:
+        - lambda: |-
+            id(menu_lev) += 1;
+            if (id(menu_lev) > 2) id(menu_lev) = 0;
+            switch(id(menu_lev))
+            {
+                case 0:
+                    id(rotary_encoder1).set_min_value(-1);
+                    id(rotary_encoder1).set_max_value(5);
+                    id(rotary_encoder1).set_value(id(menu_pos));
+                break;
+                case 1:
+                    id(rotary_encoder1).set_min_value(0);
+                    id(rotary_encoder1).set_max_value(100);
+                    if (id(status_text).state == "RUN") id(menu_pos) = 0; /* STOP если нажата в любом месте и состояние RUN */
+                    switch(id(menu_pos))
+                    {
+                        case -1:
+                            id(menu_lev) = 0;
+                            id(menu_pos) = 0;
+                            id(rotary_encoder1).set_min_value(-1);
+                            id(rotary_encoder1).set_max_value(5);
+                            id(rotary_encoder1).set_value(id(menu_pos));
+                            id(status_text).publish_state("RUN");
+                        break;
+                        case 0:
+                            id(menu_lev) = 0;
+                            id(rotary_encoder1).set_min_value(-1);
+                            id(rotary_encoder1).set_max_value(5);
+                            id(status_text).publish_state("STOP");
+                        break;
+                        case 1:
+                            id(rotary_encoder1).set_value(id(menu1_value));
+                        break;
+                        case 2:
+                            id(rotary_encoder1).set_value(id(menu2_value));
+                        break;
+                        case 3:
+                            id(rotary_encoder1).set_value(id(menu3_value));
+                        break;                        
+                        case 4:
+                            id(rotary_encoder1).set_value(id(menu4_value));
+                        break;
+                        case 5:
+                            id(rotary_encoder1).set_value(id(menu5_value));
+                        break;
+                        };
+                break;
+                case 2:
+                    id(rotary_encoder1).set_min_value(0);
+                    id(rotary_encoder1).set_max_value(999);
+                    switch(id(menu_pos))
+                    {
+                        case -1:
+                            id(menu_lev) = 0;
+                        break;
+                        case 0:
+                            id(menu_lev) = 0;
+                        break;
+                        case 1:
+                            id(rotary_encoder1).set_value(id(menu1_time));
+                        break;
+                        case 2:
+                            id(rotary_encoder1).set_value(id(menu2_time));
+                        break;
+                        case 3:
+                            id(rotary_encoder1).set_value(id(menu3_time));
+                        break;                        
+                        case 4:
+                            id(rotary_encoder1).set_value(id(menu4_time));
+                        break;
+                        case 5:
+                            id(rotary_encoder1).set_value(id(menu5_time));
+                        break;
+                        };
+                break;
+            };
+        - component.update: my_display  
+            
+globals:
+   - id: time_left
+     type: int
+     restore_value: no
+     initial_value: '0'
+   - id: run_stage
+     type: int
+     restore_value: no
+     initial_value: '0'
+   - id: menu_pos
+     type: int
+     restore_value: no
+     initial_value: '0'
+   - id: menu_vis_pos
+     type: int
+     restore_value: no
+     initial_value: '-1'
+   - id: menu_lev
+     type: int
+     restore_value: no
+     initial_value: '0'
+   - id: menu1_value
+     type: int
+     restore_value: yes
+     initial_value: '10'
+   - id: menu1_time
+     type: int
+     restore_value: yes
+     initial_value: '30'
+   - id: menu2_value
+     type: int
+     restore_value: yes
+     initial_value: '20'
+   - id: menu2_time
+     type: int
+     restore_value: yes
+     initial_value: '30'
+   - id: menu3_value
+     type: int
+     restore_value: yes
+     initial_value: '40'
+   - id: menu3_time
+     type: int
+     restore_value: yes
+     initial_value: '30'     
+   - id: menu4_value
+     type: int
+     restore_value: yes
+     initial_value: '80'
+   - id: menu4_time
+     type: int
+     restore_value: yes
+     initial_value: '30'   
+   - id: menu5_value
+     type: int
+     restore_value: yes
+     initial_value: '20'
+   - id: menu5_time
+     type: int
+     restore_value: yes
+     initial_value: '2'   
+     
+font:              
+  - file: "fonts/tahoma.ttf"   
+    id: my_font_s
+    size: 14   
+
+spi:
+  clk_pin: 26
+  mosi_pin: 27
+
+display:
+  - platform: st7920
+    cs_pin:
+      number: 14
+      inverted: true
+    id: my_display
+    width: 128
+    height: 64
+    rotation: 180
+    update_interval: 1s
+    lambda: |-
+        it.filled_rectangle(0, 0, it.get_width(), 16);
+        it.printf(1, 0, id(my_font_s), COLOR_OFF, "%s:", id(status_text).state.c_str());
+        it.printf(42, 0, id(my_font_s), COLOR_OFF, "%d %3d", id(run_stage), id(time_left));
+        it.strftime(90, 0, id(my_font_s), COLOR_OFF, "%H:%M", id(sntp_time).now());
+        
+        if (id(menu_vis_pos) == -1)
+            it.printf(3, 16, id(my_font_s), "%s", "START");
+
+        if (id(menu_vis_pos) <= 0)
+            it.printf(3, 32 - (id(menu_vis_pos) + 1) * 16, id(my_font_s), "%s", "STOP");
+            
+        if (id(menu_vis_pos) <= 1)
+            it.printf(3, 32 - id(menu_vis_pos) * 16, id(my_font_s), "1: %5d%% %5ds.", id(menu1_value), id(menu1_time));
+
+        if (id(menu_vis_pos) >= 0 && id(menu_vis_pos) <= 2)
+            it.printf(3, 48 - id(menu_vis_pos) * 16, id(my_font_s), "2: %5d%% %5ds.", id(menu2_value), id(menu2_time));
+
+        if (id(menu_vis_pos) >= 1 && id(menu_vis_pos) <= 3)
+            it.printf(3, 48 - (id(menu_vis_pos) - 1) * 16, id(my_font_s), "3: %5d%% %5ds.", id(menu3_value), id(menu3_time));
+
+        if (id(menu_vis_pos) >= 2 && id(menu_vis_pos) <= 4)
+            it.printf(3, 48 - (id(menu_vis_pos) - 2) * 16, id(my_font_s), "4: %5d%% %5ds.", id(menu4_value), id(menu4_time));
+
+        if (id(menu_vis_pos) >= 3)
+            it.printf(3, 48 - (id(menu_vis_pos) - 3) * 16, id(my_font_s), "5: %5d%% %5ds.", id(menu5_value), id(menu5_time));
+
+        switch(id(menu_lev))
+        {   
+            case 0:
+                it.rectangle(0, 18 + (id(menu_pos) - id(menu_vis_pos)) * 16 , 127, 14);
+            break;
+            case 1:
+                it.rectangle(20, 18 + (id(menu_pos) - id(menu_vis_pos)) * 16 , 48, 14);
+            break;
+            case 2:
+                it.rectangle(69, 18 + (id(menu_pos) - id(menu_vis_pos)) * 16 , 48, 14);
+            break;
+        }
+
+sensor:   
+  - platform: uptime
+    name: Uptime Sensor
+    update_interval: 5min
+  - platform: rotary_encoder
+    name: "Rotary Encoder 1"
+    id: rotary_encoder1
+    pin_a: GPIO18
+    pin_b: GPIO19
+    min_value: -1
+    max_value: 5
+    on_value:
+      then:
+        - lambda: |-
+            switch(id(menu_lev))
+            {
+                case 0:
+                    id(menu_pos) = id(rotary_encoder1).state;
+                    if ((id(menu_vis_pos) - id(menu_pos)) < -2)  id(menu_vis_pos) = id(menu_pos) - 2;
+                    if ((id(menu_vis_pos) - id(menu_pos)) > 0)  id(menu_vis_pos) = id(menu_pos);
+                break;
+                case 1:
+                    switch(id(menu_pos))
+                    {
+                        case 1:
+                            id(menu1_value) = id(rotary_encoder1).state;
+                        break;
+                        case 2:
+                            id(menu2_value) = id(rotary_encoder1).state;
+                        break;
+                        case 3:
+                            id(menu3_value) = id(rotary_encoder1).state;
+                        break;                        
+                        case 4:
+                            id(menu4_value) = id(rotary_encoder1).state;
+                        break;
+                        case 5:
+                            id(menu5_value) = id(rotary_encoder1).state;
+                        break;
+                    };
+                break;
+                case 2:
+                    switch(id(menu_pos))
+                    {
+                        case 1:
+                            id(menu1_time) = id(rotary_encoder1).state;
+                        break;
+                        case 2:
+                            id(menu2_time) = id(rotary_encoder1).state;
+                        break;
+                        case 3:
+                            id(menu3_time) = id(rotary_encoder1).state;
+                        break;                        
+                        case 4:
+                            id(menu4_time) = id(rotary_encoder1).state;
+                        break;
+                        case 5:
+                            id(menu5_time) = id(rotary_encoder1).state;
+                        break;
+                    };
+                break;
+            };
+        - component.update: my_display
+    
+time:
+  - platform: sntp
+    id: sntp_time
+
+text_sensor:
+  - platform: template
+    name: "Status"
+    id: status_text
+    on_value:
+      then:
+      - if:
+          condition:
+            text_sensor.state:
+              id: status_text
+              state: 'RUN'
+          then:
+          - script.execute: run_script
+          else:
+          - script.stop: run_script
+          - globals.set:
+              id: time_left
+              value: '0'
+          - globals.set:
+              id: run_stage
+              value: '0'
+
+uart:
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 19200
+  data_bits: 7
+  parity: NONE
+  stop_bits: 2
+
+delta_vfd:
+  id: vfd1
+  address: 1
+  receive_timeout: 1s
+  update_interval: 60s
+
+script:
+  - id: run_script
+    then:
+      - lambda: |-
+          id(run_stage) = 1;
+          id(time_left) = id(menu1_time);
+          id(vfd1).start(id(menu1_value));
+      - delay: !lambda "return id(menu1_time)*1000;"
+      - lambda: |-
+          id(run_stage) = 2;
+          id(time_left) = id(menu2_time);
+          id(vfd1).start(id(menu2_value));
+      - delay: !lambda "return id(menu2_time)*1000;"
+      - lambda: |-
+          id(run_stage) = 3;
+          id(time_left) = id(menu3_time);
+          id(vfd1).start(id(menu3_value));
+      - delay: !lambda "return id(menu3_time)*1000;"
+      - lambda: |-
+          id(run_stage) = 4;
+          id(time_left) = id(menu4_time);
+          id(vfd1).start(id(menu4_value));
+      - delay: !lambda "return id(menu4_time)*1000;"
+      - lambda: |-
+          id(run_stage) = 5;
+          id(time_left) = id(menu5_time);
+          id(vfd1).start(id(menu5_value));
+      - delay: !lambda "return id(menu5_time)*1000;"
+      - lambda: |-
+          id(vfd1).stop();
+          id(status_text).publish_state("END");
+
+interval:
+  - interval: 1s
+    then:
+      - lambda: !lambda "if (id(time_left) > 0) id(time_left)--;"
