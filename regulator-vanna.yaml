@@ -1,8 +1,17 @@
 esphome:
   name: regulator-vanna
+  platformio_options:
+    upload_speed: 460800
+    board_build.f_cpu: 80000000L
+    board_build.f_flash: 40000000L
+    board_build.flash_mode: dio
+    board_build.flash_size: 4MB
 
 esp32:
   board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    platform_version: 5.4.0
 
 wifi:
   ap:
@@ -13,7 +22,8 @@ wifi:
 
 # Enable logging
 logger:
-  level: debug
+  #level: debug
+  level: INFO
 
 # Enable Home Assistant API
 #api:
@@ -23,8 +33,9 @@ logger:
 # Активация web сервера
 web_server:
   port: 80
-  local: true
-  #version: 1
+  ota: false
+  version: 2
+  js_include: "www_all_number.js"
 
 #status_led:
 #  pin:
@@ -49,11 +60,40 @@ sensor:
   - platform: uptime
     name: Uptime Sensor
     update_interval: 5min
-  
+
+  - platform: internal_temperature
+    name: "Internal Temperature"
+
   - platform: dallas
     name: "Temperature"
     address: 0x7f04159053c4ff28
     id: temp_1
+    on_value_range:
+      - below: 38.0
+        then:
+          - light.turn_on:
+              id: rgb_led
+              brightness: 50%
+              red: 0%
+              green: 0%
+              blue: 100%
+      - above: 43.0
+        below: 38.0
+        then:
+          - light.turn_on:
+              id: rgb_led
+              brightness: 50%
+              red: 0%
+              green: 100%
+              blue: 0%
+      - above: 43.0
+        then:
+          - light.turn_on:
+              id: rgb_led
+              brightness: 50%
+              red: 100%
+              green: 0%
+              blue: 0%
 
 switch:
   - platform: gpio
@@ -93,11 +133,17 @@ output:
 
 light:
   - platform: rgb
+    id: rgb_led
     name: "RGB led"
     red: out_red
     green: out_green
     blue: out_blue
 
+interval:
+  - interval: 1sec
+    then:
+      light.toggle: rgb_led
+        
 climate:
   - platform: bang_bang
     name: "Bang Bang Climate Controller"
