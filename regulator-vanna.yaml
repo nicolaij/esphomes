@@ -36,6 +36,7 @@ web_server:
   ota: false
   version: 2
   js_include: "www_all_number.js"
+  js_url: ""
 
 #status_led:
 #  pin:
@@ -47,6 +48,9 @@ binary_sensor:
     pin:
       number: GPIO9
       inverted: true
+      mode:
+        input: true
+        pullup: true
     filters:
       - delayed_on: 50ms
     name: "Switch button"
@@ -140,7 +144,7 @@ light:
     blue: out_blue
 
 interval:
-  - interval: 1sec
+  - interval: 2sec
     then:
       light.toggle: rgb_led
         
