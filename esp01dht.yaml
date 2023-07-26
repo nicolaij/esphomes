@@ -1,0 +1,55 @@
+esphome:
+  name: esp01dht
+
+esp8266:
+  board: esp01_1m
+#  framework:
+#    type: esp-idf
+
+wifi:
+  ssid: "Nadtocheeva 5"
+  password: "123123123"
+  reboot_timeout: 0s
+  ap:
+    ssid: "esp01dht1"
+    password: "123123123"
+    ap_timeout: 20s
+#  power_save_mode: HIGH
+
+#captive_portal:
+
+# Enable logging
+logger:
+  #level: VERY_VERBOSE
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+  ota: false
+  version: 1
+
+# Individual sensors
+sensor:   
+  - platform: uptime
+    name: Uptime Sensor
+    update_interval: 5min
+
+  - platform: dht
+    model: DHT11
+    pin: 2
+    temperature:
+      name: "Living Room Temperature"
+    humidity:
+      name: "Living Room Humidity"
+    update_interval: 60s
+
+  - platform: adc
+    pin: VCC
+    name: "VCC Voltage"
