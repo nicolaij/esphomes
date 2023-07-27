@@ -5,11 +5,13 @@ esphome:
 
 esp32:
   board: esp32dev
-#  framework:
-#    type: esp-idf
+  framework:
+    type: esp-idf
+    platform_version: 5.4.0
+    version: 4.4.5
 
 wifi:
-  ssid: "MiMikalai"
+  ssid: "Nadtocheeva 5"
   password: "123123123"
   reboot_timeout: 0s
   ap:
@@ -22,7 +24,7 @@ wifi:
 
 # Enable logging
 logger:
-  level: VERY_VERBOSE
+  #level: VERY_VERBOSE
   #level: INFO
 
 # Enable Home Assistant API
@@ -38,7 +40,7 @@ web_server:
   ota: false
   version: 2
   js_include: "www.js"
-  #js_url: "test.js"
+  js_url: ""
 
 #status_led:
 #  pin:

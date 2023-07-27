@@ -1,0 +1,125 @@
+esphome:
+  name: gorenichi
+  platformio_options:
+    upload_speed: 460800
+    board_build.f_cpu: 160000000L
+#    board_build.f_flash: 40000000L
+#    board_build.flash_mode: dio
+#    board_build.flash_size: 4MB
+
+esp32:
+  board: lolin_s2_mini
+  framework:
+    type: esp-idf
+    platform_version: 5.4.0
+    version: 4.4.5
+
+wifi:
+  ssid: "Nadtocheeva 5"
+  password: "123123123"
+  reboot_timeout: 0s  
+  ap:
+    ssid: "gorenichi-heat"
+    password: "123123123"
+  power_save_mode: HIGH
+
+# Enable logging
+logger:
+  #level: debug
+  #level: INFO
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s  
+
+ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+  ota: false
+  version: 2
+  js_include: "www_all_number.js"
+  js_url: ""
+
+status_led:
+  pin:
+    number: GPIO15
+    inverted: false
+
+font:
+  - file: "fonts/tahomabd.ttf"
+    id: tahoma_clock
+    size: 80
+  - file: "fonts/tahomabd.ttf"
+    id: tahoma_16
+    size: 16
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 50ms
+    name: "Switch button"
+
+
+# Individual sensors
+sensor:   
+  - platform: uptime
+    name: Uptime Sensor
+    update_interval: 5min
+
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    update_interval: 5min
+
+switch:
+  - platform: gpio
+    pin:
+       number: GPIO1
+    id: relay1
+    on_turn_on:
+      - light.turn_on: led1
+    on_turn_off:
+      - light.turn_off: led1
+
+output:
+  - platform: ledc
+    pin:
+      number: GPIO14
+      inverted: true
+      mode:
+        output: true
+        open_drain: true
+    id: backlight_out
+
+light:
+  - platform: monochromatic
+    id: backlight
+    name: "Display"
+    output: backlight_out    
+
+  - platform: status_led
+    name: "Switch state"
+    id: led1
+    pin:
+      number: GPIO15
+      inverted: false
+
+spi:
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
+
+display:
+  - platform: st7565r
+    cs_pin: GPIO10
+    dc_pin: GPIO9
+    reset_pin: GPIO8
+    lambda: |-
+      it.line(0, 0, 127, 63);
+      it.circle(64, 32, 20);
