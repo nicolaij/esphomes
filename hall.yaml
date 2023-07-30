@@ -2,6 +2,8 @@ esphome:
   name: hall
   platformio_options:
     board_build.f_cpu: 80000000L
+  includes:
+    - http_sensor.h
 
 esp32:
   board: esp32dev
@@ -67,6 +69,18 @@ sensor:
     name: "ESP32 Hall Sensor"
     update_interval: 100s
 
+  - platform: custom
+    lambda: |-
+      auto http_sensor = new HTTPSensor();
+      App.register_component(http_sensor);
+      return {http_sensor->temperature_sensor};
+  
+    sensors:
+    - name: "My Custom Temperature Sensor"
+      unit_of_measurement: °C
+      accuracy_decimals: 1
+
+
 select:
   - platform: template
     name: Mode
@@ -111,4 +125,5 @@ display:
     lambda: |-
       it.line(0, 0, 127, 63);
       it.circle(64, 32, 20);
+
 

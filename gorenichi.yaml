@@ -1,3 +1,6 @@
+substitutions:
+  boiler_ip: "192.168.10.69"
+
 esphome:
   name: gorenichi
   platformio_options:
@@ -6,6 +9,8 @@ esphome:
 #    board_build.f_flash: 40000000L
 #    board_build.flash_mode: dio
 #    board_build.flash_size: 4MB
+  includes:
+    - http_sensor.h
 
 esp32:
   board: lolin_s2_mini
@@ -54,6 +59,9 @@ font:
   - file: "fonts/tahomabd.ttf"
     id: tahoma_16
     size: 16
+  - file: "fonts/tahomabd.ttf"
+    id: tahoma_8
+    size: 8
 
 binary_sensor:
   - platform: gpio
@@ -67,16 +75,35 @@ binary_sensor:
       - delayed_on: 50ms
     name: "Switch button"
 
+sensor:
+  - platform: template
+    name: "Boiler temperature"
+    id: template_btemperature_id
 
-# Individual sensors
-sensor:   
+  - platform: template
+    name: "Boiler humidity"
+    id: template_bhumidity_id    
+
   - platform: uptime
     name: Uptime Sensor
     update_interval: 5min
 
   - platform: internal_temperature
     name: "Internal Temperature"
+    id: internal_temperature_id
     update_interval: 5min
+
+  - platform: custom
+    lambda: |-
+      auto http_sensor = new HTTPSensor();
+      App.register_component(http_sensor);
+      return {http_sensor->temperature_sensor};
+  
+    sensors:
+    - name: "My Custom Temperature Sensor"
+      unit_of_measurement: °C
+      accuracy_decimals: 1
+
 
 switch:
   - platform: gpio
@@ -109,7 +136,7 @@ light:
     id: led1
     pin:
       number: GPIO15
-      inverted: false
+      inverted: false                 
 
 spi:
   clk_pin: GPIO12
@@ -120,6 +147,6 @@ display:
     cs_pin: GPIO10
     dc_pin: GPIO9
     reset_pin: GPIO8
+    id: display_id
     lambda: |-
-      it.line(0, 0, 127, 63);
-      it.circle(64, 32, 20);
+      it.printf(0, 0, id(tahoma_8), "%.1f°C", id(internal_temperature_id).state);
