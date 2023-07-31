@@ -20,12 +20,12 @@ esp32:
     version: 4.4.5
 
 wifi:
-  ssid: "Nadtocheeva 5"
-  password: "123123123"
+  ssid: !secret wifi_ssid_home
+  password: !secret wifi_password_home
   reboot_timeout: 0s  
   ap:
     ssid: "gorenichi-heat"
-    password: "123123123"
+    password: !secret ap_password
   power_save_mode: HIGH
 
 # Enable logging

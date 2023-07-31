@@ -7,14 +7,12 @@ esphome:
     board_build.f_cpu: 80000000L
     
 wifi:
-  ssid: "Test"
-  password: "123123123"
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ssid: !secret wifi_ssid_home
+  password: !secret wifi_password_home
+  reboot_timeout: 0s
   ap:
     ssid: "encoder Fallback Hotspot"
-    password: "123123123"
-  reboot_timeout: 0s
+    password: !secret ap_password
 #  power_save_mode: HIGH
 
 captive_portal:

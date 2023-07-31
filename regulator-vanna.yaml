@@ -19,7 +19,7 @@ esp32:
 wifi:
   ap:
     ssid: "Regulator-Vanna"
-    password: "123123123"
+    password: !secret ap_password
   reboot_timeout: 0s
   power_save_mode: HIGH
 

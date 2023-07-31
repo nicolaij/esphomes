@@ -34,10 +34,10 @@ ota:
 
 wifi:
   networks:
-  - ssid: "Nadtocheeva 5"
-    password: "123123123"
-  - ssid: "Nadtocheeva 5_plus"
-    password: "123123123"
+  - ssid: !secret wifi_ssid_home
+    password: !secret wifi_password_home
+  - ssid: !secret wifi_ssid_home2
+    password: !secret wifi_password_home2
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
 #  ap:
