@@ -26,6 +26,7 @@ wifi:
 
 # Enable logging
 logger:
+  level: VERBOSE
   #level: VERY_VERBOSE
   #level: INFO
 
@@ -38,7 +39,7 @@ ota:
 # Активация web сервера
 web_server:
   port: 80
-#  local: true
+  #  local: true
   ota: false
   version: 2
   js_include: "www.js"
@@ -58,9 +59,8 @@ binary_sensor:
       - delayed_on: 50ms
     name: "Boot button"
 
-
 # Individual sensors
-sensor:   
+sensor:
   - platform: uptime
     name: Uptime Sensor
     update_interval: 5min
@@ -71,16 +71,32 @@ sensor:
 
   - platform: custom
     lambda: |-
-      auto http_sensor = new HTTPSensor();
+      auto http_sensor = new HTTPSensor("http://192.168.10.1", "[\"StatusSNS.DHT11.Temperature\",\"StatusSNS.DHT11.Humidity\"]");
+      http_sensor->set_update_interval(10000);
       App.register_component(http_sensor);
-      return {http_sensor->temperature_sensor};
-  
+      return {http_sensor->sensors_array[0], http_sensor->sensors_array[1]};
     sensors:
-    - name: "My Custom Temperature Sensor"
-      unit_of_measurement: °C
-      accuracy_decimals: 1
+      - name: "Remote Temperature Sensor"
+        unit_of_measurement: °C
+        accuracy_decimals: 1
+      - name: "Remote Humidity Sensor"
+        unit_of_measurement: h
+        accuracy_decimals: 0
 
-
+  - platform: custom
+    lambda: |-
+      auto http_sensor2 = new HTTPSensor("http://192.168.10.2", "[\"StatusSNS.DHT11.Temperature\",\"StatusSNS.DHT11.Humidity\"]");
+      http_sensor2->set_update_interval(12000);
+      App.register_component(http_sensor2);
+      return {http_sensor2->sensors_array[0], http_sensor2->sensors_array[1]};
+    sensors:
+      - name: "Remote Temperature Sensor2"
+        unit_of_measurement: °C
+        accuracy_decimals: 1
+      - name: "Remote Humidity Sensor2"
+        unit_of_measurement: h
+        accuracy_decimals: 0
+    
 select:
   - platform: template
     name: Mode
@@ -89,7 +105,7 @@ select:
       - "Option1"
       - "Option2"
       - "Option3"
-#    initial_option: "OFF"
+    #    initial_option: "OFF"
     optimistic: true
     set_action:
       - logger.log:
@@ -101,9 +117,9 @@ lock:
     name: Lock comp
     optimistic: true
     on_lock:
-    - logger.log: "Door Locked!"
+      - logger.log: "Door Locked!"
     on_unlock:
-    - logger.log: "Door Unlocked!"          
+      - logger.log: "Door Unlocked!"
 
 font:
   - file: "fonts/tahomabd.ttf"
@@ -125,5 +141,3 @@ display:
     lambda: |-
       it.line(0, 0, 127, 63);
       it.circle(64, 32, 20);
-
-
