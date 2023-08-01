@@ -3,7 +3,7 @@ esphome:
   platformio_options:
     board_build.f_cpu: 80000000L
   includes:
-    - http_sensor.h
+    - http_sensor_idf.h
 
 esp32:
   board: esp32dev
@@ -71,10 +71,10 @@ sensor:
 
   - platform: custom
     lambda: |-
-      auto http_sensor = new HTTPSensor("http://192.168.10.1", "[\"StatusSNS.DHT11.Temperature\",\"StatusSNS.DHT11.Humidity\"]");
-      http_sensor->set_update_interval(10000);
-      App.register_component(http_sensor);
-      return {http_sensor->sensors_array[0], http_sensor->sensors_array[1]};
+      auto http_sensor1 = new HTTPSensor("http://192.168.10.1", "StatusSNS.DHT11.Temperature;StatusSNS.DHT11.Humidity");
+      http_sensor1->set_update_interval(10000);
+      App.register_component(http_sensor1);
+      return {http_sensor1->sensors_array[0], http_sensor1->sensors_array[1]};
     sensors:
       - name: "Remote Temperature Sensor"
         unit_of_measurement: °C
@@ -85,15 +85,18 @@ sensor:
 
   - platform: custom
     lambda: |-
-      auto http_sensor2 = new HTTPSensor("http://192.168.10.2", "[\"StatusSNS.DHT11.Temperature\",\"StatusSNS.DHT11.Humidity\"]");
+      auto http_sensor2 = new HTTPSensor("http://192.168.10.2", "StatusSNS.DHT11.Temperature2;StatusSNS.DHT11.Humidity2;StatusSNS.DHT11.Humidity3");
       http_sensor2->set_update_interval(12000);
       App.register_component(http_sensor2);
-      return {http_sensor2->sensors_array[0], http_sensor2->sensors_array[1]};
+      return {http_sensor2->sensors_array[0], http_sensor2->sensors_array[1], http_sensor2->sensors_array[1]};
     sensors:
       - name: "Remote Temperature Sensor2"
         unit_of_measurement: °C
         accuracy_decimals: 1
       - name: "Remote Humidity Sensor2"
+        unit_of_measurement: h
+        accuracy_decimals: 0
+      - name: "Remote Humidity Sensor3"
         unit_of_measurement: h
         accuracy_decimals: 0
     
