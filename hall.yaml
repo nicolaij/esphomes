@@ -71,33 +71,29 @@ sensor:
 
   - platform: custom
     lambda: |-
-      auto http_sensor1 = new HTTPSensor("http://192.168.10.1", "StatusSNS.DHT11.Temperature;StatusSNS.DHT11.Humidity");
-      http_sensor1->set_update_interval(10000);
-      App.register_component(http_sensor1);
-      return {http_sensor1->sensors_array[0], http_sensor1->sensors_array[1]};
+      auto tasmota_sensors = new HTTPSensor("http://192.168.10.69/cm?cmnd=Status%2010", "StatusSNS.DHT11.Temperature;StatusSNS.DHT11.Humidity");
+      tasmota_sensors->set_update_interval(30000);
+      App.register_component(tasmota_sensors);
+      return {tasmota_sensors->sensors_array[0], tasmota_sensors->sensors_array[1]};
+
     sensors:
       - name: "Remote Temperature Sensor"
         unit_of_measurement: °C
+        device_class: TEMPERATURE
         accuracy_decimals: 1
       - name: "Remote Humidity Sensor"
-        unit_of_measurement: h
+        unit_of_measurement: "%"
         accuracy_decimals: 0
 
   - platform: custom
     lambda: |-
-      auto http_sensor2 = new HTTPSensor("http://192.168.10.2", "StatusSNS.DHT11.Temperature2;StatusSNS.DHT11.Humidity2;StatusSNS.DHT11.Humidity3");
-      http_sensor2->set_update_interval(12000);
-      App.register_component(http_sensor2);
-      return {http_sensor2->sensors_array[0], http_sensor2->sensors_array[1], http_sensor2->sensors_array[1]};
+      auto esphome_restapi_sensor2 = new HTTPSensor("http://192.168.10.101/sensor/ens160_sensor_eco2", "value");
+      esphome_restapi_sensor2->set_update_interval(12000);
+      App.register_component(esphome_restapi_sensor2);
+      return {esphome_restapi_sensor2->sensors_array[0]};
     sensors:
-      - name: "Remote Temperature Sensor2"
-        unit_of_measurement: °C
-        accuracy_decimals: 1
-      - name: "Remote Humidity Sensor2"
-        unit_of_measurement: h
-        accuracy_decimals: 0
-      - name: "Remote Humidity Sensor3"
-        unit_of_measurement: h
+      - name: "Remote CO2 Sensor"
+        unit_of_measurement: "%"
         accuracy_decimals: 0
     
 select:

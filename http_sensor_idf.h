@@ -134,8 +134,8 @@ public:
     }
   }
 
-  float get_setup_priority() const override { return esphome::setup_priority::PROCESSOR; }
-  // float get_setup_priority() const override { return esphome::setup_priority::WIFI; }
+  //float get_setup_priority() const override { return esphome::setup_priority::PROCESSOR; }
+  float get_setup_priority() const override { return esphome::setup_priority::WIFI; }
 
   void setup() override
   {
@@ -187,7 +187,8 @@ public:
 
       if (subitem)
       {
-        this->sensors_array[i]->publish_state(subitem->valuedouble);
+        if (cJSON_IsNumber(subitem))
+          this->sensors_array[i]->publish_state(subitem->valuedouble);
       }
     }
 
@@ -225,7 +226,7 @@ static void http_client_task(void *pv)
 
       http_client = esp_http_client_init(&config_client);
 
-      //clobj->parse_data(dht);
+      esp_http_client_set_header(http_client, "Content-Type", "application/json");
 
       // GET
       esp_err_t err = esp_http_client_perform(http_client);

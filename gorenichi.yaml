@@ -10,7 +10,7 @@ esphome:
 #    board_build.flash_mode: dio
 #    board_build.flash_size: 4MB
   includes:
-    - http_sensor.h
+    - http_sensor_idf.h
 
 esp32:
   board: lolin_s2_mini
