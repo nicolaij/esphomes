@@ -26,7 +26,7 @@ wifi:
 
 # Enable logging
 logger:
-  level: VERBOSE
+  #level: VERBOSE
   #level: VERY_VERBOSE
   #level: INFO
 
@@ -63,10 +63,12 @@ binary_sensor:
 sensor:
   - platform: uptime
     name: Uptime Sensor
+    id: uptime_id
     update_interval: 5min
 
   - platform: esp32_hall
     name: "ESP32 Hall Sensor"
+    id: hall_id
     update_interval: 100s
 
   - platform: custom
@@ -80,10 +82,12 @@ sensor:
       - name: "Remote Temperature Sensor"
         unit_of_measurement: °C
         device_class: TEMPERATURE
+        id: remote_temp_id
         accuracy_decimals: 1
       - name: "Remote Humidity Sensor"
         unit_of_measurement: "%"
         accuracy_decimals: 0
+        id: remote_hum_id
 
   - platform: custom
     lambda: |-
@@ -92,7 +96,7 @@ sensor:
       App.register_component(esphome_restapi_sensor2);
       return {esphome_restapi_sensor2->sensors_array[0]};
     sensors:
-      - name: "Remote CO2 Sensor"
+      - name: "Датчик CO2"
         unit_of_measurement: "%"
         accuracy_decimals: 0
     

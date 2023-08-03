@@ -150,3 +150,38 @@ display:
     id: display_id
     lambda: |-
       it.printf(0, 0, id(tahoma_8), "%.1f°C", id(internal_temperature_id).state);
+      /*
+      #include "FreeSans9pt7b.h"
+
+        void updateDisplay() {
+            display.clearDisplay();
+            display.setTextColor(WHITE);
+            display.setTextSize(1);
+            display.setFont(&FreeSans9pt7b);
+            display.setCursor(1, 21);
+            display.print("25 C");
+            display.setCursor(1, 41);
+            display.print("20 C");
+            display.setCursor(9, 61);
+            display.print("39 C");
+            display.setCursor(75, 61);
+            display.print("69 C");
+            display.setCursor(90, 20);
+            display.print("42 C");
+            display.drawLine(0, 8, 19, 0, 1);
+            display.drawLine(20, 0, 40, 8, 1);
+            display.drawLine(0, 25, 40, 25, 1);
+            display.drawLine(0, 63, 35, 63, 1);
+            display.drawLine(0, 63, 10, 45, 1);
+            display.drawLine(45, 45, 35, 63, 0);
+            display.drawLine(10, 45, 45, 45, 1);
+            display.drawCircle(60, 13, 9, 1);
+            display.drawCircle(60, 33, 9, 1);
+            display.drawCircle(60, 53, 9, 1);
+            display.fillTriangle(52, 13, 60, 5, 60, 21, 1);
+            display.fillTriangle(52, 33, 60, 25, 60, 41, 1);
+            display.fillTriangle(52, 53, 60, 45, 60, 61, 1);
+            display.drawRect(72, 33, 56, 31, 1);
+            display.display();
+        }
+              */
