@@ -1,5 +1,5 @@
 substitutions:
-  boiler_ip: "192.168.10.69"
+  boiler_url: "http://192.168.10.69"
 
 esphome:
   name: gorenichi
@@ -52,6 +52,95 @@ status_led:
     number: GPIO15
     inverted: false
 
+globals:
+  - id: floor1_all_receive
+    type: int
+    restore_value: no
+    initial_value: '0'    
+  - id: floor2_all_receive
+    type: int
+    restore_value: no
+    initial_value: '0'    
+
+script:
+  - id: floor1_sensor_sleep
+    then:
+      if:
+        condition:
+          lambda: |-
+            return id(floor1_all_receive).state >= 7;
+        then:
+
+number:
+  #curl -X POST http://192.168.10.74/number/floor_1_temperature_sensor/set?value=24.3
+  - platform: template
+    name: "floor 1 sensor temperature data"
+    id: "f1td"
+    min_value: -20
+    max_value: 40
+    step: 0.1
+    optimistic: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor1_temperature_id
+            state: !lambda 'return x;'
+
+  - platform: template
+    name: "floor 1 sensor humidity data"
+    id: "f1hd"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor1_humidity_id
+            state: !lambda 'return x;'
+
+  - platform: template
+    name: "floor 1 sensor vcc data"
+    id: "f1vccd"
+    min_value: 0
+    max_value: 5
+    step: 0.01
+    optimistic: true
+
+  - platform: template
+    name: "floor 2 sensor temperature data"
+    id: "f2td"
+    min_value: -20
+    max_value: 40
+    step: 0.1
+    optimistic: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor2_temperature_id
+            state: !lambda 'return x;'
+
+  - platform: template
+    name: "floor 2 sensor humidity data"
+    id: "f2hd"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor2_humidity_id
+            state: !lambda 'return x;'
+
+  - platform: template
+    name: "floor 2 sensor vcc data"
+    id: "f2vccd"
+    min_value: 0
+    max_value: 5
+    step: 0.01
+    optimistic: true
+
 font:
   - file: "fonts/tahomabd.ttf"
     id: tahoma_clock
@@ -62,6 +151,9 @@ font:
   - file: "fonts/tahomabd.ttf"
     id: tahoma_8
     size: 8
+  - file: "fonts/tahoma.ttf"
+    id: tahoma_10
+    size: 10
 
 binary_sensor:
   - platform: gpio
@@ -75,14 +167,56 @@ binary_sensor:
       - delayed_on: 50ms
     name: "Switch button"
 
+dallas:
+  - pin: 1
+    update_interval: 1min
+
 sensor:
+  #данные с датчиков
   - platform: template
-    name: "Boiler temperature"
-    id: template_btemperature_id
+    name: "floor 1 sensor temperature"
+    id: floor1_temperature_id
 
   - platform: template
-    name: "Boiler humidity"
-    id: template_bhumidity_id    
+    name: "floor 1 sensor humidity"
+    id: floor1_humidity_id
+
+  - platform: template
+    name: "floor 2 sensor temperature"
+    id: floor2_temperature_id
+
+  - platform: template
+    name: "floor 2 sensor humidity"
+    id: floor2_humidity_id
+
+  - platform: dallas
+    address: 0x1c0000031edd2a28
+    name: "Waterfloor sensor temperature"
+    id: waterfloor_temperature_id
+
+    #данные с котла
+  - platform: custom
+    lambda: |-
+      auto tasmota_sensors = new HTTPSensor("http://192.168.10.69/cm?cmnd=Status%2010", "StatusSNS.DHT11.Temperature;StatusSNS.DHT11.Temperature2;StatusSNS.DHT11.Temperature3");
+      tasmota_sensors->set_update_interval(300000);
+      App.register_component(tasmota_sensors);
+      return {tasmota_sensors->sensors_array[0], tasmota_sensors->sensors_array[1], tasmota_sensors->sensors_array[2]};
+
+    sensors:
+      - name: "Boiler heating temperature"
+        unit_of_measurement: ℃
+        device_class: TEMPERATURE
+        id: remote_htemp_id
+        accuracy_decimals: 1
+      - name: "Boiler ambient temperature"
+        unit_of_measurement: ℃
+        device_class: TEMPERATURE
+        id: remote_atemp_id
+      - name: "Boiler water temperature"
+        unit_of_measurement: ℃
+        device_class: TEMPERATURE
+        id: remote_wtemp_id
+
 
   - platform: uptime
     name: Uptime Sensor
@@ -92,28 +226,26 @@ sensor:
     name: "Internal Temperature"
     id: internal_temperature_id
     update_interval: 5min
-
-  - platform: custom
-    lambda: |-
-      auto http_sensor = new HTTPSensor();
-      App.register_component(http_sensor);
-      return {http_sensor->temperature_sensor};
-  
-    sensors:
-    - name: "My Custom Temperature Sensor"
-      unit_of_measurement: °C
-      accuracy_decimals: 1
-
+    
+    
 
 switch:
   - platform: gpio
     pin:
-       number: GPIO1
+       number: GPIO4
     id: relay1
-    on_turn_on:
-      - light.turn_on: led1
-    on_turn_off:
-      - light.turn_off: led1
+  - platform: gpio
+    pin:
+       number: GPIO5
+    id: relay2
+  - platform: gpio
+    pin:
+       number: GPIO6
+    id: relay3
+  - platform: gpio
+    pin:
+       number: GPIO7
+    id: relay4
 
 output:
   - platform: ledc
@@ -123,13 +255,13 @@ output:
       mode:
         output: true
         open_drain: true
-    id: backlight_out
+    id: display_backlight_out
 
 light:
   - platform: monochromatic
     id: backlight
     name: "Display"
-    output: backlight_out    
+    output: display_backlight_out    
 
   - platform: status_led
     name: "Switch state"
@@ -149,7 +281,40 @@ display:
     reset_pin: GPIO8
     id: display_id
     lambda: |-
-      it.printf(0, 0, id(tahoma_8), "%.1f°C", id(internal_temperature_id).state);
+      //2 floor temp
+      it.printf(0, 21, id(tahoma_10), "%2.1f℃", id(internal_temperature_id).state);
+      //1 floor temp
+      it.printf(0, 41, id(tahoma_10), "%2.1f℃", id(internal_temperature_id).state);
+      //Warmfloor temp
+      it.printf(9, 61, id(tahoma_10), "%2.1f℃", id(internal_temperature_id).state);
+      //boiler heater temp
+      it.printf(75, 61, id(tahoma_10), "%2.1f℃", id(remote_htemp_id).state);
+      //boiler water temp
+      it.printf(90, 20, id(tahoma_10), "%2.1f℃", id(remote_wtemp_id).state);
+
+      //draw home
+      it.line(0,8,19,0); it.line(20,0,40,8); it.line(0,25,40,25);       
+      it.line(0, 63, 35, 63); it.line(0, 63, 10, 45); it.line( 10, 45, 45, 45); // it.line(45, 45, 35, 63);
+
+      //draw pump
+      it.circle(60, 13, 9);
+      //triangle 52, 13, 60, 5, 60, 21
+      //it.line(52, 13, 60, 5);it.line(60, 5, 60, 21);it.line(52, 13, 60, 21);
+      int y12 = 8;
+      int xl = 8;
+      int y0 = 13;
+      int x0 = 52;
+      //filled tri
+      it.draw_pixel_at(x0, y0, COLOR_ON);
+      for(int x = 0; x<8; x++)
+      {
+        y = x * y12 / xl;
+        for(int yp = (-1*y); yp<=y; yp++)
+        {
+          it.draw_pixel_at(x0 + x, y0 + y, COLOR_ON);
+        }
+      }
+
       /*
       #include "FreeSans9pt7b.h"
 
@@ -185,3 +350,38 @@ display:
             display.display();
         }
               */
+
+climate:
+  - platform: bang_bang
+    name: "Floor 1 Climate Controller"
+    sensor: floor1_temperature_id
+    default_target_temperature_low: 20 °C
+    default_target_temperature_high: 22 °C
+
+    heat_action:
+      - switch.turn_on: relay1
+    idle_action:
+      - switch.turn_off: relay1
+
+  - platform: bang_bang
+    name: "Floor 2 Climate Controller"
+    sensor: floor2_temperature_id
+    default_target_temperature_low: 20 °C
+    default_target_temperature_high: 22 °C
+
+    heat_action:
+      - switch.turn_on: relay2
+    idle_action:
+      - switch.turn_off: relay2
+
+  - platform: bang_bang
+    name: "Waterfloor Climate Controller"
+    sensor: waterfloor_temperature_id
+    default_target_temperature_low: 35 °C
+    default_target_temperature_high: 45 °C
+
+    heat_action:
+      - switch.turn_on: relay3
+    idle_action:
+      - switch.turn_off: relay3
+

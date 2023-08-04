@@ -1,3 +1,8 @@
+substitutions:
+  temp_set_url: "http://192.168.10.74/number/floor_1_sensor_temperature_data/set?value="
+  humi_set_url: "http://192.168.10.74/number/floor_1_sensor_humidity_data/set?value="
+  vcc_set_url: "http://192.168.10.74/number/floor_1_sensor_vcc_data/set?value="
+
 esphome:
   name: esp01htu2x
 
@@ -9,6 +14,7 @@ esp8266:
 deep_sleep:
   run_duration: 60s
   sleep_duration: 5min
+  id: deep_sleep_5m
 
 wifi:
   ssid: !secret wifi_ssid_home
@@ -38,7 +44,11 @@ web_server:
   port: 80
   ota: false
   version: 1
-  
+
+http_request:
+  useragent: esphome/device
+  timeout: 3s
+
 i2c:
   sda: 0
   scl: 2
@@ -47,22 +57,76 @@ i2c:
   frequency: 100kHz
 
 # Individual sensors
-sensor:   
+sensor:
   - platform: uptime
     name: Uptime Sensor
 
   - platform: htu21d  
     id: dt
     temperature:
-      name: "Living Room Temperature"
+      name: "Room Temperature"
+      id: temp_id
+      on_value:
+        - http_request.post:
+            url: !lambda |-
+              return ((std::string) "${temp_set_url}" + id(temp_id).state).c_str();
+            verify_ssl: false
+            on_response:
+              then:
+                - logger.log:
+                    format: "Response status: %d"
+                    args:
+                      - status_code
+
     humidity:
-      name: "Living Room Humidity"
+      name: "Room Humidity"
+      id: humi_id
+      on_value:
+        - http_request.post:
+            url: !lambda |-
+              return ((std::string) "${humi_set_url}" + id(humi_id).state).c_str();
+            verify_ssl: false
+            on_response:
+              then:
+                - logger.log:
+                    format: "Response status: %d"
+                    args:
+                      - status_code            
 
   - platform: adc
     id: vcc
     pin: VCC
     name: "VCC Voltage"
+    on_value:
+      - http_request.post:
+          url: !lambda |-
+            return ((std::string) "${vcc_set_url}" + id(vcc).state).c_str();
+          verify_ssl: false
+          on_response:
+            then:
+              - logger.log:
+                  format: "Response status: %d"
+                  args:
+                    - status_code          
 
   - platform: wifi_signal
     id: wifi_s
     name: "WiFi Signal Sensor"
+
+switch:
+  # for remote sleep POST /switch/deep_sleep_switch/turn_on
+  - platform: template
+    name: "Deep sleep switch"
+    turn_on_action:
+      - deep_sleep.enter:
+          id: deep_sleep_5m
+          sleep_duration: 5min
+
+  # disable sleep for testing
+  - platform: template
+    name: "Disable sleep switch"
+    turn_on_action:
+      - deep_sleep.prevent: deep_sleep_5m
+
+  - platform: restart
+    name: "Restart switch"
