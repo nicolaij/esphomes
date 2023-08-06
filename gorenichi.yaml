@@ -60,16 +60,7 @@ globals:
   - id: floor2_all_receive
     type: int
     restore_value: no
-    initial_value: '0'    
-
-script:
-  - id: floor1_sensor_sleep
-    then:
-      if:
-        condition:
-          lambda: |-
-            return id(floor1_all_receive).state >= 7;
-        then:
+    initial_value: '0'
 
 number:
   #curl -X POST http://192.168.10.74/number/floor_1_temperature_sensor/set?value=24.3
@@ -84,7 +75,7 @@ number:
       then:
         - sensor.template.publish:
             id: floor1_temperature_id
-            state: !lambda 'return x;'
+            state: !lambda 'if(x > -20) return x; else return NAN;'
 
   - platform: template
     name: "floor 1 sensor humidity data"
@@ -97,7 +88,7 @@ number:
       then:
         - sensor.template.publish:
             id: floor1_humidity_id
-            state: !lambda 'return x;'
+            state: !lambda 'if(x > 0) return x; else return NAN;'
 
   - platform: template
     name: "floor 1 sensor vcc data"
@@ -118,7 +109,7 @@ number:
       then:
         - sensor.template.publish:
             id: floor2_temperature_id
-            state: !lambda 'return x;'
+            state: !lambda 'if(x > -20) return x; else return NAN;'
 
   - platform: template
     name: "floor 2 sensor humidity data"
@@ -131,7 +122,7 @@ number:
       then:
         - sensor.template.publish:
             id: floor2_humidity_id
-            state: !lambda 'return x;'
+            state: !lambda 'if(x > 0) return x; else return NAN;'
 
   - platform: template
     name: "floor 2 sensor vcc data"
@@ -151,9 +142,9 @@ font:
   - file: "fonts/tahomabd.ttf"
     id: tahoma_8
     size: 8
-  - file: "fonts/tahoma.ttf"
-    id: tahoma_10
-    size: 10
+  - file: "fonts/tahomabd.ttf"
+    id: tahoma_digits
+    size: 12
 
 binary_sensor:
   - platform: gpio
@@ -176,6 +167,9 @@ sensor:
   - platform: template
     name: "floor 1 sensor temperature"
     id: floor1_temperature_id
+    on_value: 
+      then:
+        - component.update: mydisplay
 
   - platform: template
     name: "floor 1 sensor humidity"
@@ -184,6 +178,9 @@ sensor:
   - platform: template
     name: "floor 2 sensor temperature"
     id: floor2_temperature_id
+    on_value: 
+      then:
+        - component.update: mydisplay    
 
   - platform: template
     name: "floor 2 sensor humidity"
@@ -193,6 +190,9 @@ sensor:
     address: 0x1c0000031edd2a28
     name: "Waterfloor sensor temperature"
     id: waterfloor_temperature_id
+    on_value: 
+      then:
+        - component.update: mydisplay
 
     #данные с котла
   - platform: custom
@@ -204,18 +204,18 @@ sensor:
 
     sensors:
       - name: "Boiler heating temperature"
-        unit_of_measurement: ℃
+        unit_of_measurement: °C
         device_class: TEMPERATURE
         id: remote_htemp_id
         accuracy_decimals: 1
       - name: "Boiler ambient temperature"
-        unit_of_measurement: ℃
+        unit_of_measurement: °C
         device_class: TEMPERATURE
         id: remote_atemp_id
       - name: "Boiler water temperature"
-        unit_of_measurement: ℃
+        unit_of_measurement: °C
         device_class: TEMPERATURE
-        id: remote_wtemp_id
+        id: remote_wtemp_id   
 
 
   - platform: uptime
@@ -226,26 +226,45 @@ sensor:
     name: "Internal Temperature"
     id: internal_temperature_id
     update_interval: 5min
-    
-    
 
 switch:
   - platform: gpio
     pin:
        number: GPIO4
+       inverted: true
     id: relay1
+    on_turn_on:
+      - component.update: mydisplay
+    on_turn_off:
+      - component.update: mydisplay
+
   - platform: gpio
     pin:
        number: GPIO5
+       inverted: true
     id: relay2
+    on_turn_on:
+      - component.update: mydisplay
+    on_turn_off:
+      - component.update: mydisplay    
   - platform: gpio
     pin:
        number: GPIO6
+       inverted: true
     id: relay3
+    on_turn_on:
+      - component.update: mydisplay
+    on_turn_off:
+      - component.update: mydisplay    
   - platform: gpio
     pin:
        number: GPIO7
+       inverted: true
     id: relay4
+    on_turn_on:
+      - component.update: mydisplay
+    on_turn_off:
+      - component.update: mydisplay    
 
 output:
   - platform: ledc
@@ -261,14 +280,15 @@ light:
   - platform: monochromatic
     id: backlight
     name: "Display"
-    output: display_backlight_out    
+    output: display_backlight_out
+    restore_mode: RESTORE_DEFAULT_OFF
 
   - platform: status_led
     name: "Switch state"
     id: led1
     pin:
       number: GPIO15
-      inverted: false                 
+      inverted: false
 
 spi:
   clk_pin: GPIO12
@@ -279,77 +299,75 @@ display:
     cs_pin: GPIO10
     dc_pin: GPIO9
     reset_pin: GPIO8
-    id: display_id
+    id: mydisplay
+    update_interval: never
     lambda: |-
       //2 floor temp
-      it.printf(0, 21, id(tahoma_10), "%2.1f℃", id(internal_temperature_id).state);
+      it.printf(0, 10, id(tahoma_digits), "%2.1f°C", id(floor2_temperature_id).state);
       //1 floor temp
-      it.printf(0, 41, id(tahoma_10), "%2.1f℃", id(internal_temperature_id).state);
+      it.printf(0, 30, id(tahoma_digits), "%2.1f°C", id(floor1_temperature_id).state);
       //Warmfloor temp
-      it.printf(9, 61, id(tahoma_10), "%2.1f℃", id(internal_temperature_id).state);
+      it.printf(9, 50, id(tahoma_digits), "%2.1f°C", id(waterfloor_temperature_id).state);
       //boiler heater temp
-      it.printf(75, 61, id(tahoma_10), "%2.1f℃", id(remote_htemp_id).state);
+      it.printf(75, 50, id(tahoma_digits), "%2.1f°C", id(remote_htemp_id).state);
       //boiler water temp
-      it.printf(90, 20, id(tahoma_10), "%2.1f℃", id(remote_wtemp_id).state);
+      it.printf(90, 10, id(tahoma_digits), "%2.1f°C", id(remote_wtemp_id).state);
 
       //draw home
       it.line(0,8,19,0); it.line(20,0,40,8); it.line(0,25,40,25);       
       it.line(0, 63, 35, 63); it.line(0, 63, 10, 45); it.line( 10, 45, 45, 45); // it.line(45, 45, 35, 63);
 
-      //draw pump
+      //draw pump 2 floor
       it.circle(60, 13, 9);
-      //triangle 52, 13, 60, 5, 60, 21
-      //it.line(52, 13, 60, 5);it.line(60, 5, 60, 21);it.line(52, 13, 60, 21);
       int y12 = 8;
       int xl = 8;
       int y0 = 13;
       int x0 = 52;
       //filled tri
-      it.draw_pixel_at(x0, y0, COLOR_ON);
-      for(int x = 0; x<8; x++)
+      if (id(relay2).state)
       {
-        y = x * y12 / xl;
-        for(int yp = (-1*y); yp<=y; yp++)
+        it.draw_pixel_at(x0, y0, COLOR_ON);
+        for(int x = 0; x<=8; x++)
         {
-          it.draw_pixel_at(x0 + x, y0 + y, COLOR_ON);
+          int y = x * y12 / xl;
+          for(int yp = (-1*y); yp<=y; yp++)
+          {
+            it.draw_pixel_at(x0 + x, y0 + yp, COLOR_ON);
+          }
         }
       }
 
-      /*
-      #include "FreeSans9pt7b.h"
-
-        void updateDisplay() {
-            display.clearDisplay();
-            display.setTextColor(WHITE);
-            display.setTextSize(1);
-            display.setFont(&FreeSans9pt7b);
-            display.setCursor(1, 21);
-            display.print("25 C");
-            display.setCursor(1, 41);
-            display.print("20 C");
-            display.setCursor(9, 61);
-            display.print("39 C");
-            display.setCursor(75, 61);
-            display.print("69 C");
-            display.setCursor(90, 20);
-            display.print("42 C");
-            display.drawLine(0, 8, 19, 0, 1);
-            display.drawLine(20, 0, 40, 8, 1);
-            display.drawLine(0, 25, 40, 25, 1);
-            display.drawLine(0, 63, 35, 63, 1);
-            display.drawLine(0, 63, 10, 45, 1);
-            display.drawLine(45, 45, 35, 63, 0);
-            display.drawLine(10, 45, 45, 45, 1);
-            display.drawCircle(60, 13, 9, 1);
-            display.drawCircle(60, 33, 9, 1);
-            display.drawCircle(60, 53, 9, 1);
-            display.fillTriangle(52, 13, 60, 5, 60, 21, 1);
-            display.fillTriangle(52, 33, 60, 25, 60, 41, 1);
-            display.fillTriangle(52, 53, 60, 45, 60, 61, 1);
-            display.drawRect(72, 33, 56, 31, 1);
-            display.display();
+      //draw pump 1 floor
+      it.circle(60, 33, 9);
+      y0 = 33;
+      if (id(relay1).state)
+      {
+        it.draw_pixel_at(x0, y0, COLOR_ON);
+        for(int x = 0; x<=8; x++)
+        {
+          int y = x * y12 / xl;
+          for(int yp = (-1*y); yp<=y; yp++)
+          {
+            it.draw_pixel_at(x0 + x, y0 + yp, COLOR_ON);
+          }
         }
-              */
+      }
+
+      //draw pump waterfloor
+      it.circle(60, 53, 9);
+      y0 = 53;
+      if (id(relay3).state)
+      {
+        it.draw_pixel_at(x0, y0, COLOR_ON);
+        for(int x = 0; x<=8; x++)
+        {
+          int y = x * y12 / xl;
+          for(int yp = (-1*y); yp<=y; yp++)
+          {
+            it.draw_pixel_at(x0 + x, y0 + yp, COLOR_ON);
+          }
+        }
+      }
 
 climate:
   - platform: bang_bang

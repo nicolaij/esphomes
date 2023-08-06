@@ -1,7 +1,7 @@
 substitutions:
-  temp_set_url: "http://192.168.10.74/number/floor_1_sensor_temperature_data/set?value="
-  humi_set_url: "http://192.168.10.74/number/floor_1_sensor_humidity_data/set?value="
-  vcc_set_url: "http://192.168.10.74/number/floor_1_sensor_vcc_data/set?value="
+  temp_set_url: "http://192.168.10.70/number/floor_1_sensor_temperature_data/set?value="
+  humi_set_url: "http://192.168.10.70/number/floor_1_sensor_humidity_data/set?value="
+  vcc_set_url: "http://192.168.10.70/number/floor_1_sensor_vcc_data/set?value="
 
 esphome:
   name: esp01htu2x
@@ -69,7 +69,7 @@ sensor:
       on_value:
         - http_request.post:
             url: !lambda |-
-              return ((std::string) "${temp_set_url}" + id(temp_id).state).c_str();
+              return ((std::string) "${temp_set_url}" + to_string(id(temp_id).state)).c_str();
             verify_ssl: false
             on_response:
               then:
@@ -84,14 +84,14 @@ sensor:
       on_value:
         - http_request.post:
             url: !lambda |-
-              return ((std::string) "${humi_set_url}" + id(humi_id).state).c_str();
+              return ((std::string) "${humi_set_url}" + to_string(id(humi_id).state)).c_str();
             verify_ssl: false
             on_response:
               then:
                 - logger.log:
                     format: "Response status: %d"
                     args:
-                      - status_code            
+                      - status_code
 
   - platform: adc
     id: vcc
@@ -100,14 +100,14 @@ sensor:
     on_value:
       - http_request.post:
           url: !lambda |-
-            return ((std::string) "${vcc_set_url}" + id(vcc).state).c_str();
+            return ((std::string) "${vcc_set_url}" + to_string(id(vcc).state)).c_str();
           verify_ssl: false
           on_response:
             then:
               - logger.log:
                   format: "Response status: %d"
                   args:
-                    - status_code          
+                    - status_code
 
   - platform: wifi_signal
     id: wifi_s
