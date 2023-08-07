@@ -8,8 +8,6 @@ esphome:
 
 esp8266:
   board: esp01_1m
-#  framework:
-#    type: esp-idf
 
 deep_sleep:
   run_duration: 60s
@@ -45,6 +43,31 @@ web_server:
   ota: false
   version: 1
 
+globals:
+  - id: send_data
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+script:
+  - id: check_sleep
+    parameters:
+      status: int
+      addition: int
+    then:
+      - lambda: |-
+        if (status == 200) {
+          id(send_data) += addition;
+        }
+      - if:
+        condition:
+          lambda: 'return id(send_data) == 7;'
+        then:
+          - deep_sleep.enter:
+            id: deep_sleep_5m
+            sleep_duration: 5min
+  
+
 http_request:
   useragent: esphome/device
   timeout: 3s
@@ -70,13 +93,22 @@ sensor:
         - http_request.post:
             url: !lambda |-
               return ((std::string) "${temp_set_url}" + to_string(id(temp_id).state)).c_str();
+            headers:
+              Content-Type: "application/x-www-form-urlencoded"
+            body: !lambda |-
+              return ((std::string) "value=" + to_string(id(temp_id).state));
             verify_ssl: false
             on_response:
               then:
                 - logger.log:
-                    format: "Response status: %d"
-                    args:
-                      - status_code
+                  format: 'Response status: %d, Duration: %u ms'
+                  args:
+                    - status_code
+                    - duration_ms
+                - script.execute:
+                    id: check_sleep
+                    status: status_code
+                    addition: 1
 
     humidity:
       name: "Room Humidity"
@@ -85,13 +117,22 @@ sensor:
         - http_request.post:
             url: !lambda |-
               return ((std::string) "${humi_set_url}" + to_string(id(humi_id).state)).c_str();
+            headers:
+              Content-Type: "application/x-www-form-urlencoded"
+            body: !lambda |-
+              return ((std::string) "value=" + to_string(id(humi_id).state));
             verify_ssl: false
             on_response:
               then:
                 - logger.log:
-                    format: "Response status: %d"
-                    args:
-                      - status_code
+                  format: 'Response status: %d, Duration: %u ms'
+                  args:
+                    - status_code
+                    - duration_ms
+                - script.execute:
+                    id: check_sleep
+                    status: status_code
+                    addition: 2
 
   - platform: adc
     id: vcc
@@ -101,13 +142,22 @@ sensor:
       - http_request.post:
           url: !lambda |-
             return ((std::string) "${vcc_set_url}" + to_string(id(vcc).state)).c_str();
+          headers:
+            Content-Type: "application/x-www-form-urlencoded"
+          body: !lambda |-
+            return ((std::string) "value=" + to_string(id(humi_id).state));
           verify_ssl: false
           on_response:
             then:
               - logger.log:
-                  format: "Response status: %d"
-                  args:
-                    - status_code
+                format: 'Response status: %d, Duration: %u ms'
+                args:
+                  - status_code
+                  - duration_ms
+              - script.execute:
+                  id: check_sleep
+                  status: status_code
+                  addition: 4
 
   - platform: wifi_signal
     id: wifi_s
