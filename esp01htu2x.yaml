@@ -52,20 +52,17 @@ globals:
 script:
   - id: check_sleep
     parameters:
-      status: int
       addition: int
     then:
       - lambda: |-
-        if (status == 200) {
-          id(send_data) += addition;
-        }
+            id(send_data) += addition;
       - if:
-        condition:
-          lambda: 'return id(send_data) == 7;'
-        then:
-          - deep_sleep.enter:
-            id: deep_sleep_5m
-            sleep_duration: 5min
+          condition:
+            lambda: 'return id(send_data) == 7;'
+          then:
+            - deep_sleep.enter:
+                id: deep_sleep_5m
+                sleep_duration: 5min
   
 
 http_request:
@@ -100,15 +97,14 @@ sensor:
             verify_ssl: false
             on_response:
               then:
-                - logger.log:
-                  format: 'Response status: %d, Duration: %u ms'
-                  args:
-                    - status_code
-                    - duration_ms
-                - script.execute:
-                    id: check_sleep
-                    status: status_code
-                    addition: 1
+                - if:
+                    condition:
+                      lambda: |-
+                        return status_code == 200;
+                    then:
+                      - script.execute:
+                          id: check_sleep
+                          addition: 1
 
     humidity:
       name: "Room Humidity"
@@ -124,15 +120,14 @@ sensor:
             verify_ssl: false
             on_response:
               then:
-                - logger.log:
-                  format: 'Response status: %d, Duration: %u ms'
-                  args:
-                    - status_code
-                    - duration_ms
-                - script.execute:
-                    id: check_sleep
-                    status: status_code
-                    addition: 2
+                - if:
+                    condition:
+                      lambda: |-
+                        return status_code == 200;
+                    then:
+                      - script.execute:
+                          id: check_sleep
+                          addition: 2
 
   - platform: adc
     id: vcc
@@ -149,15 +144,14 @@ sensor:
           verify_ssl: false
           on_response:
             then:
-              - logger.log:
-                format: 'Response status: %d, Duration: %u ms'
-                args:
-                  - status_code
-                  - duration_ms
-              - script.execute:
-                  id: check_sleep
-                  status: status_code
-                  addition: 4
+              - if:
+                  condition:
+                    lambda: |-
+                      return status_code == 200;
+                  then:
+                    - script.execute:
+                        id: check_sleep
+                        addition: 4
 
   - platform: wifi_signal
     id: wifi_s
