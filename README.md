@@ -7,3 +7,7 @@ COG LCD module from aliexpess GM12864-01A
 # [http_sensor_idf.h](http_sensor_idf.h)
 Service on esp-idf for reading JSON sensors from IoT web servers. E.g. Tasmota.
 Example use in [hall.yaml](hall.yaml)
+# delta_vfd
+Control DELTA VFD EL over Modbus
+Use: rotary_encoder, modbus_controller, display st7920
+
