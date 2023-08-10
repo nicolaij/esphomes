@@ -68,6 +68,7 @@ script:
 http_request:
   useragent: esphome/device
   timeout: 3s
+  esp8266_disable_ssl_support: yes
 
 i2c:
   sda: 0
@@ -90,10 +91,6 @@ sensor:
         - http_request.post:
             url: !lambda |-
               return ((std::string) "${temp_set_url}" + to_string(id(temp_id).state)).c_str();
-            headers:
-              Content-Type: "application/x-www-form-urlencoded"
-            body: !lambda |-
-              return ((std::string) "value=" + to_string(id(temp_id).state));
             verify_ssl: false
             on_response:
               then:
@@ -113,10 +110,6 @@ sensor:
         - http_request.post:
             url: !lambda |-
               return ((std::string) "${humi_set_url}" + to_string(id(humi_id).state)).c_str();
-            headers:
-              Content-Type: "application/x-www-form-urlencoded"
-            body: !lambda |-
-              return ((std::string) "value=" + to_string(id(humi_id).state));
             verify_ssl: false
             on_response:
               then:
@@ -137,10 +130,6 @@ sensor:
       - http_request.post:
           url: !lambda |-
             return ((std::string) "${vcc_set_url}" + to_string(id(vcc).state)).c_str();
-          headers:
-            Content-Type: "application/x-www-form-urlencoded"
-          body: !lambda |-
-            return ((std::string) "value=" + to_string(id(humi_id).state));
           verify_ssl: false
           on_response:
             then:
