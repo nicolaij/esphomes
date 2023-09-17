@@ -55,9 +55,9 @@ web_server:
   version: 2
   js_include: "www_all_number.js"
   js_url: ""
-  auth:
-    username: gorenichi
-    password: !secret mqtt_password
+#  auth:
+#    username: gorenichi
+#    password: !secret mqtt_password
 
 status_led:
   pin:
@@ -447,7 +447,35 @@ display:
         }
       }
 
+button:
+  - platform: template
+    name: "Away mode"
+    on_press:
+      then:
+        - climate.control:
+            id: floor1_controller
+            preset: "AWAY"
+        - climate.control:
+            id: floor2_controller
+            preset: "AWAY"
+        - climate.control:
+            id: waterfloor_controller
+            preset: "AWAY"
 
+  - platform: template
+    name: "Home mode"
+    on_press:
+      then:
+        - climate.control:
+            id: floor1_controller
+            preset: "HOME"
+        - climate.control:
+            id: floor2_controller
+            preset: "HOME"
+        - climate.control:
+            id: waterfloor_controller
+            preset: "HOME"
+      
 climate:
   - platform: bang_bang
     name: "Floor 1 Climate Controller"
@@ -455,6 +483,9 @@ climate:
     sensor: floor1_temperature_id
     default_target_temperature_low: 20 °C
     default_target_temperature_high: 22 °C
+    away_config:
+      default_target_temperature_low: 5 °C
+      default_target_temperature_high: 8 °C
 
     heat_action:
       - switch.turn_on: relay1
@@ -467,6 +498,9 @@ climate:
     sensor: floor2_temperature_id
     default_target_temperature_low: 20 °C
     default_target_temperature_high: 22 °C
+    away_config:
+      default_target_temperature_low: 5 °C
+      default_target_temperature_high: 8 °C
 
     heat_action:
       - switch.turn_on: relay2
@@ -479,6 +513,10 @@ climate:
     sensor: waterfloor_temperature_id
     default_target_temperature_low: 35 °C
     default_target_temperature_high: 45 °C
+    away_config:
+      default_target_temperature_low: 5 °C
+      default_target_temperature_high: 8 °C
+  
 
     heat_action:
       - switch.turn_on: relay3
