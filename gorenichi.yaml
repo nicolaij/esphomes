@@ -1,6 +1,3 @@
-substitutions:
-  boiler_url: "http://192.168.10.69"
-
 esphome:
   name: gorenichi
   platformio_options:
@@ -9,15 +6,13 @@ esphome:
 #    board_build.f_flash: 40000000L
 #    board_build.flash_mode: dio
 #    board_build.flash_size: 4MB
-  includes:
-    - http_sensor_idf.h
 
 esp32:
-  board: lolin_s2_mini
-  framework:
-    type: esp-idf
-    platform_version: 5.4.0
-    version: 4.4.5
+  board: mhetesp32devkit
+#  framework:
+#    type: esp-idf
+#    sdkconfig_options:
+#      CONFIG_LWIP_MAX_SOCKETS: "16"
 
 wifi:
   ssid: !secret wifi_ssid_home
@@ -27,17 +22,31 @@ wifi:
     ssid: "gorenichi-heat"
     password: !secret ap_password
   power_save_mode: HIGH
+  manual_ip:
+    static_ip: 192.168.10.70
+    gateway: 192.168.10.1
+    subnet: 255.255.255.0
+    dns1: 192.168.10.1
 
 # Enable logging
 logger:
-  #level: debug
+  #level: VERBOSE
   #level: INFO
 
 # Enable Home Assistant API
 api:
-  reboot_timeout: 0s  
+  reboot_timeout: 0s
 
 ota:
+  password: !secret mqtt_password
+
+mqtt:
+  log_topic: null
+  broker: dev.rightech.io
+  port: 1883
+  username: gorenichi
+  password: !secret mqtt_password
+  reboot_timeout: 24h
 
 # Активация web сервера
 web_server:
@@ -46,91 +55,14 @@ web_server:
   version: 2
   js_include: "www_all_number.js"
   js_url: ""
+  auth:
+    username: gorenichi
+    password: !secret mqtt_password
 
 status_led:
   pin:
-    number: GPIO15
-    inverted: false
-
-globals:
-  - id: floor1_all_receive
-    type: int
-    restore_value: no
-    initial_value: '0'    
-  - id: floor2_all_receive
-    type: int
-    restore_value: no
-    initial_value: '0'
-
-number:
-  #curl -X POST http://192.168.10.74/number/floor_1_temperature_sensor/set?value=24.3
-  - platform: template
-    name: "floor 1 sensor temperature data"
-    id: "f1td"
-    min_value: -20
-    max_value: 40
-    step: 0.1
-    optimistic: true
-    on_value: 
-      then:
-        - sensor.template.publish:
-            id: floor1_temperature_id
-            state: !lambda 'if(x > -20) return x; else return NAN;'
-
-  - platform: template
-    name: "floor 1 sensor humidity data"
-    id: "f1hd"
-    min_value: 0
-    max_value: 100
-    step: 1
-    optimistic: true
-    on_value: 
-      then:
-        - sensor.template.publish:
-            id: floor1_humidity_id
-            state: !lambda 'if(x > 0) return x; else return NAN;'
-
-  - platform: template
-    name: "floor 1 sensor vcc data"
-    id: "f1vccd"
-    min_value: 0
-    max_value: 5
-    step: 0.01
-    optimistic: true
-
-  - platform: template
-    name: "floor 2 sensor temperature data"
-    id: "f2td"
-    min_value: -20
-    max_value: 40
-    step: 0.1
-    optimistic: true
-    on_value: 
-      then:
-        - sensor.template.publish:
-            id: floor2_temperature_id
-            state: !lambda 'if(x > -20) return x; else return NAN;'
-
-  - platform: template
-    name: "floor 2 sensor humidity data"
-    id: "f2hd"
-    min_value: 0
-    max_value: 100
-    step: 1
-    optimistic: true
-    on_value: 
-      then:
-        - sensor.template.publish:
-            id: floor2_humidity_id
-            state: !lambda 'if(x > 0) return x; else return NAN;'
-
-  - platform: template
-    name: "floor 2 sensor vcc data"
-    id: "f2vccd"
-    min_value: 0
-    max_value: 5
-    step: 0.01
-    optimistic: true
+    number: GPIO2
+    inverted: true
 
 font:
   - file: "fonts/tahomabd.ttf"
@@ -146,6 +78,20 @@ font:
     id: tahoma_digits
     size: 12
 
+globals:
+  - id: floor1_data_timeout
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: floor2_data_timeout
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: waterfloor_data_timeout
+    type: int
+    restore_value: no
+    initial_value: '0'
+
 binary_sensor:
   - platform: gpio
     pin:
@@ -157,9 +103,96 @@ binary_sensor:
     filters:
       - delayed_on: 50ms
     name: "Switch button"
+    internal: true
+
+number:
+  #curl -X POST http://192.168.10.74/number/floor_1_temperature_sensor/set?value=24.3
+  - platform: template
+    name: "floor 1 sensor temperature data"
+    id: "f1td"
+    min_value: -300
+    max_value: 1000
+    step: 1
+    optimistic: true
+    internal: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor1_temperature_id
+            state: !lambda 'if(x > -300) return x / 10.0; else return NAN;'
+
+  - platform: template
+    name: "floor 1 sensor humidity data"
+    id: "f1hd"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    internal: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor1_humidity_id
+            state: !lambda 'if(x > 0) return x; else return NAN;'
+
+  - platform: template
+    name: "floor 1 sensor vcc data"
+    id: "f1vccd"
+    min_value: 0
+    max_value: 5000
+    step: 1
+    optimistic: true
+    internal: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor1_vcc_id
+            state: !lambda 'if(x > 0) return x / 1000.0; else return NAN;'
+
+  - platform: template
+    name: "floor 2 sensor temperature data"
+    id: "f2td"
+    min_value: -300
+    max_value: 1000
+    step: 1
+    optimistic: true
+    internal: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor2_temperature_id
+            state: !lambda 'if(x > -300) return x / 10.0; else return NAN;'
+
+  - platform: template
+    name: "floor 2 sensor humidity data"
+    id: "f2hd"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    internal: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor2_humidity_id
+            state: !lambda 'if(x > 0) return x; else return NAN;'
+
+  - platform: template
+    name: "floor 2 sensor vcc data"
+    id: "f2vccd"
+    min_value: 0
+    max_value: 5000
+    step: 1
+    optimistic: true
+    internal: true
+    on_value: 
+      then:
+        - sensor.template.publish:
+            id: floor2_vcc_id
+            state: !lambda 'if(x > 0) return x / 1000.0; else return NAN;'
 
 dallas:
-  - pin: 1
+  - pin: GPIO13
     update_interval: 1min
 
 sensor:
@@ -167,70 +200,98 @@ sensor:
   - platform: template
     name: "floor 1 sensor temperature"
     id: floor1_temperature_id
+    device_class: "temperature"
+    state_class: "measurement"
+    unit_of_measurement: "°C"
     on_value: 
       then:
         - component.update: mydisplay
+        - globals.set:
+            id: floor1_data_timeout
+            value: '0'
 
   - platform: template
     name: "floor 1 sensor humidity"
     id: floor1_humidity_id
+    device_class: "HUMIDITY"
+    state_class: "measurement"
+    unit_of_measurement: "%"
+
+  - platform: template
+    name: "floor 1 sensor vcc battery"
+    id: floor1_vcc_id
+    accuracy_decimals: 2
+    device_class: "VOLTAGE"
+    state_class: "measurement"
+    unit_of_measurement: "V"
 
   - platform: template
     name: "floor 2 sensor temperature"
     id: floor2_temperature_id
+    device_class: "temperature"
+    state_class: "measurement"
+    unit_of_measurement: "°C"
     on_value: 
       then:
         - component.update: mydisplay    
+        - globals.set:
+            id: floor2_data_timeout
+            value: '0'
 
   - platform: template
     name: "floor 2 sensor humidity"
     id: floor2_humidity_id
+    device_class: "HUMIDITY"
+    state_class: "measurement"
+    unit_of_measurement: "%"
+
+  - platform: template
+    name: "floor 2 sensor vcc battery"
+    id: floor2_vcc_id
+    accuracy_decimals: 2
+    device_class: "VOLTAGE"
+    state_class: "measurement"
+    unit_of_measurement: "V"
 
   - platform: dallas
-    address: 0x1c0000031edd2a28
+    address: 0x8f3ca7f649d65a28
     name: "Waterfloor sensor temperature"
     id: waterfloor_temperature_id
     on_value: 
       then:
         - component.update: mydisplay
+        - globals.set:
+            id: waterfloor_data_timeout
+            value: '0'
 
     #данные с котла
-  - platform: custom
-    lambda: |-
-      auto tasmota_sensors = new HTTPSensor("http://192.168.10.69/cm?cmnd=Status%2010", "StatusSNS.DHT11.Temperature;StatusSNS.DHT11.Temperature2;StatusSNS.DHT11.Temperature3");
-      tasmota_sensors->set_update_interval(300000);
-      App.register_component(tasmota_sensors);
-      return {tasmota_sensors->sensors_array[0], tasmota_sensors->sensors_array[1], tasmota_sensors->sensors_array[2]};
+  - platform: template
+    name: "Boiler heating temperature"
+    unit_of_measurement: °C
+    device_class: TEMPERATURE
+    id: remote_htemp_id
+    accuracy_decimals: 1
 
-    sensors:
-      - name: "Boiler heating temperature"
-        unit_of_measurement: °C
-        device_class: TEMPERATURE
-        id: remote_htemp_id
-        accuracy_decimals: 1
-      - name: "Boiler ambient temperature"
-        unit_of_measurement: °C
-        device_class: TEMPERATURE
-        id: remote_atemp_id
-      - name: "Boiler water temperature"
-        unit_of_measurement: °C
-        device_class: TEMPERATURE
-        id: remote_wtemp_id   
+  - platform: template
+    name: "Boiler ambient temperature"
+    unit_of_measurement: °C
+    device_class: TEMPERATURE
+    id: remote_atemp_id
 
+  - platform: template
+    name: "Boiler water temperature"
+    unit_of_measurement: °C
+    device_class: TEMPERATURE
+    id: remote_wtemp_id   
 
   - platform: uptime
     name: Uptime Sensor
     update_interval: 5min
 
-  - platform: internal_temperature
-    name: "Internal Temperature"
-    id: internal_temperature_id
-    update_interval: 5min
-
 switch:
   - platform: gpio
     pin:
-       number: GPIO4
+       number: GPIO17
        inverted: true
     id: relay1
     on_turn_on:
@@ -249,7 +310,7 @@ switch:
       - component.update: mydisplay    
   - platform: gpio
     pin:
-       number: GPIO6
+       number: GPIO18
        inverted: true
     id: relay3
     on_turn_on:
@@ -258,7 +319,7 @@ switch:
       - component.update: mydisplay    
   - platform: gpio
     pin:
-       number: GPIO7
+       number: GPIO19
        inverted: true
     id: relay4
     on_turn_on:
@@ -266,10 +327,34 @@ switch:
     on_turn_off:
       - component.update: mydisplay    
 
+  - platform: template
+    name: "All controllers control"
+    assumed_state: true
+    turn_on_action:
+      - climate.control:
+          id: floor1_controller
+          mode: "HEAT"
+      - climate.control:
+          id: floor2_controller
+          mode: "HEAT"
+      - climate.control:
+          id: waterfloor_controller
+          mode: "HEAT"
+    turn_off_action:
+      - climate.control:
+          id: floor1_controller
+          mode: "OFF"
+      - climate.control:
+          id: floor2_controller
+          mode: "OFF"
+      - climate.control:
+          id: waterfloor_controller
+          mode: "OFF"
+
 output:
   - platform: ledc
     pin:
-      number: GPIO14
+      number: GPIO33
       inverted: true
       mode:
         output: true
@@ -279,26 +364,19 @@ output:
 light:
   - platform: monochromatic
     id: backlight
-    name: "Display"
+    name: "Display backliqht"
     output: display_backlight_out
     restore_mode: RESTORE_DEFAULT_OFF
 
-  - platform: status_led
-    name: "Switch state"
-    id: led1
-    pin:
-      number: GPIO15
-      inverted: false
-
 spi:
-  clk_pin: GPIO12
-  mosi_pin: GPIO11
+  clk_pin: GPIO26
+  mosi_pin: GPIO25
 
 display:
   - platform: st7565r
-    cs_pin: GPIO10
-    dc_pin: GPIO9
-    reset_pin: GPIO8
+    cs_pin: GPIO12
+    dc_pin: GPIO27
+    reset_pin: GPIO14
     id: mydisplay
     update_interval: never
     lambda: |-
@@ -307,9 +385,9 @@ display:
       //1 floor temp
       it.printf(0, 30, id(tahoma_digits), "%2.1f°C", id(floor1_temperature_id).state);
       //Warmfloor temp
-      it.printf(9, 50, id(tahoma_digits), "%2.1f°C", id(waterfloor_temperature_id).state);
+      it.printf(9, 49, id(tahoma_digits), "%2.1f°C", id(waterfloor_temperature_id).state);
       //boiler heater temp
-      it.printf(75, 50, id(tahoma_digits), "%2.1f°C", id(remote_htemp_id).state);
+      it.printf(75, 49, id(tahoma_digits), "%2.1f°C", id(remote_htemp_id).state);
       //boiler water temp
       it.printf(90, 10, id(tahoma_digits), "%2.1f°C", id(remote_wtemp_id).state);
 
@@ -369,9 +447,11 @@ display:
         }
       }
 
+
 climate:
   - platform: bang_bang
     name: "Floor 1 Climate Controller"
+    id: "floor1_controller"
     sensor: floor1_temperature_id
     default_target_temperature_low: 20 °C
     default_target_temperature_high: 22 °C
@@ -383,6 +463,7 @@ climate:
 
   - platform: bang_bang
     name: "Floor 2 Climate Controller"
+    id: "floor2_controller"
     sensor: floor2_temperature_id
     default_target_temperature_low: 20 °C
     default_target_temperature_high: 22 °C
@@ -394,6 +475,7 @@ climate:
 
   - platform: bang_bang
     name: "Waterfloor Climate Controller"
+    id: "waterfloor_controller"
     sensor: waterfloor_temperature_id
     default_target_temperature_low: 35 °C
     default_target_temperature_high: 45 °C
@@ -403,3 +485,38 @@ climate:
     idle_action:
       - switch.turn_off: relay3
 
+http_request:
+  useragent: esphome/device
+  timeout: 1s
+  id: http_request_data
+      
+interval:
+  - interval: 1min
+    then:
+      - http_request.get:
+          url: http://192.168.10.69/cm?cmnd=Status%2010
+          on_response:
+            then:
+              - lambda: |-
+                  json::parse_json(id(http_request_data).get_string(), [](JsonObject root) {
+                      id(remote_htemp_id).publish_state(root["StatusSNS"]["DHT11"]["Temperature"]);
+                      id(remote_wtemp_id).publish_state(root["StatusSNS"]["DHT11"]["Humidity"]);
+                  });
+              - component.update: mydisplay
+  - interval: 5min
+    then:
+      - lambda: |-
+          id(floor1_data_timeout)++;
+          if (id(floor1_data_timeout) > 3) {
+            id(floor1_temperature_id).publish_state(NAN);
+            id(floor1_data_timeout) = 0;}
+          
+          id(floor2_data_timeout)++;
+          if (id(floor2_data_timeout) > 3) {
+            id(floor2_temperature_id).publish_state(NAN);
+            id(floor2_data_timeout) = 0;}            
+            
+          id(waterfloor_data_timeout)++;
+          if (id(waterfloor_data_timeout) > 3) {
+            id(waterfloor_temperature_id).publish_state(NAN);
+            id(waterfloor_data_timeout) = 0;}            
