@@ -477,47 +477,68 @@ button:
             preset: "HOME"
       
 climate:
-  - platform: bang_bang
+  - platform: thermostat
     name: "Floor 1 Climate Controller"
     id: "floor1_controller"
     sensor: floor1_temperature_id
-    default_target_temperature_low: 20 °C
-    default_target_temperature_high: 22 °C
-    away_config:
-      default_target_temperature_low: 5 °C
-      default_target_temperature_high: 8 °C
-
+    min_idle_time: 30s
+    min_heating_off_time: 300s
+    min_heating_run_time: 300s
+    heat_deadband: 1
+    heat_overrun: 1
+    default_preset: HOME
+    preset:
+      - name: HOME
+        default_target_temperature_low: 22 °C
+      - name: AWAY
+        default_target_temperature_low: 7 °C
+    visual: 
+      min_temperature: 5
     heat_action:
       - switch.turn_on: relay1
     idle_action:
       - switch.turn_off: relay1
 
-  - platform: bang_bang
+  - platform: thermostat
     name: "Floor 2 Climate Controller"
     id: "floor2_controller"
     sensor: floor2_temperature_id
-    default_target_temperature_low: 20 °C
-    default_target_temperature_high: 22 °C
-    away_config:
-      default_target_temperature_low: 5 °C
-      default_target_temperature_high: 8 °C
-
+    min_idle_time: 30s
+    min_heating_off_time: 300s
+    min_heating_run_time: 300s
+    heat_deadband: 1
+    heat_overrun: 1
+    default_preset: HOME
+    preset:
+      - name: HOME
+        default_target_temperature_low: 20 °C
+      - name: AWAY
+        default_target_temperature_low: 7 °C
+    visual: 
+      min_temperature: 5        
     heat_action:
       - switch.turn_on: relay2
     idle_action:
       - switch.turn_off: relay2
 
-  - platform: bang_bang
+  - platform: thermostat
     name: "Waterfloor Climate Controller"
     id: "waterfloor_controller"
     sensor: waterfloor_temperature_id
-    default_target_temperature_low: 35 °C
-    default_target_temperature_high: 45 °C
-    away_config:
-      default_target_temperature_low: 5 °C
-      default_target_temperature_high: 8 °C
-  
-
+    min_idle_time: 30s
+    min_heating_off_time: 300s
+    min_heating_run_time: 300s
+    heat_deadband: 1
+    heat_overrun: 1
+    default_preset: HOME
+    preset:
+      - name: HOME
+        default_target_temperature_low: 30 °C
+      - name: AWAY
+        default_target_temperature_low: 7 °C
+    visual: 
+      min_temperature: 5
+      max_temperature: 40
     heat_action:
       - switch.turn_on: relay3
     idle_action:
