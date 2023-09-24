@@ -211,7 +211,7 @@ dallas:
 sensor:
   #данные с датчиков
   - platform: template
-    name: "floor 1 sensor temperature"
+    name: "Floor 1 sensor temperature"
     id: floor1_temperature_id
     device_class: "temperature"
     state_class: "measurement"
@@ -224,14 +224,14 @@ sensor:
             value: "0"
 
   - platform: template
-    name: "floor 1 sensor humidity"
+    name: "Floor 1 sensor humidity"
     id: floor1_humidity_id
     device_class: "HUMIDITY"
     state_class: "measurement"
     unit_of_measurement: "%"
 
   - platform: template
-    name: "floor 1 sensor vcc battery"
+    name: "Floor 1 sensor vcc battery"
     id: floor1_vcc_id
     accuracy_decimals: 2
     device_class: "VOLTAGE"
@@ -239,7 +239,7 @@ sensor:
     unit_of_measurement: "V"
 
   - platform: template
-    name: "floor 2 sensor temperature"
+    name: "Floor 2 sensor temperature"
     id: floor2_temperature_id
     device_class: "temperature"
     state_class: "measurement"
@@ -252,14 +252,14 @@ sensor:
             value: "0"
 
   - platform: template
-    name: "floor 2 sensor humidity"
+    name: "Floor 2 sensor humidity"
     id: floor2_humidity_id
     device_class: "HUMIDITY"
     state_class: "measurement"
     unit_of_measurement: "%"
 
   - platform: template
-    name: "floor 2 sensor vcc battery"
+    name: "Floor 2 sensor vcc battery"
     id: floor2_vcc_id
     accuracy_decimals: 2
     device_class: "VOLTAGE"
@@ -267,7 +267,7 @@ sensor:
     unit_of_measurement: "V"
 
   - platform: dallas
-    address: 0x8f3ca7f649d65a28
+    address: 0x0f3c3cf649848c28
     name: "Waterfloor sensor temperature"
     id: waterfloor_temperature_id
     on_value:
@@ -277,28 +277,22 @@ sensor:
             id: waterfloor_data_timeout
             value: "0"
 
-    #данные с котла
-  - platform: template
-    name: "Boiler heating temperature"
-    unit_of_measurement: °C
-    device_class: TEMPERATURE
-    id: remote_htemp_id
-    accuracy_decimals: 1
-
-  - platform: template
-    name: "Boiler ambient temperature"
-    unit_of_measurement: °C
-    device_class: TEMPERATURE
-    id: remote_atemp_id
-
-  - platform: template
-    name: "Boiler water temperature"
-    unit_of_measurement: °C
-    device_class: TEMPERATURE
-    id: remote_wtemp_id
+  - platform: dallas
+    address: 0xe13c0df649c70128
+    name: "Boiler sensor temperature"
+    id: boiler_temperature_id
+    on_value:
+      then:
+        - component.update: mydisplay
+        - lambda: |-
+            if(x > id(floor1_controller).target_temperature_low && 
+                x > id(floor2_controller).target_temperature_low && 
+                  x > id(waterfloor_controller).target_temperature_low)
+                  { id(boiler_permission).turn_on(); }
+                  else { id(boiler_permission).turn_off(); };
 
   - platform: uptime
-    name: Uptime Sensor
+    name: "uptime sensor"
     update_interval: 5min
 
 switch:
@@ -307,6 +301,7 @@ switch:
       number: GPIO17
       inverted: true
     id: relay1
+    name: "Relay \"Pump 1\""
     on_turn_on:
       - component.update: mydisplay
     on_turn_off:
@@ -317,19 +312,23 @@ switch:
       number: GPIO5
       inverted: true
     id: relay2
+    name: "Relay \"Pump 2\""
     on_turn_on:
       - component.update: mydisplay
     on_turn_off:
       - component.update: mydisplay
+
   - platform: gpio
     pin:
       number: GPIO18
       inverted: true
     id: relay3
+    name: "Relay \"Pump 3\""
     on_turn_on:
       - component.update: mydisplay
     on_turn_off:
       - component.update: mydisplay
+
   - platform: gpio
     pin:
       number: GPIO19
@@ -339,6 +338,23 @@ switch:
       - component.update: mydisplay
     on_turn_off:
       - component.update: mydisplay
+
+  - platform: gpio
+    pin:
+      number: GPIO32
+      inverted: false
+    id: relayb
+    name: "Relay \"Boiler\""
+    on_turn_on:
+      - component.update: mydisplay
+    on_turn_off:
+      - component.update: mydisplay
+
+  - platform: template
+    name: "Boiler permission"
+    id: boiler_permission
+    optimistic: true
+    restore_mode: ALWAYS_OFF
 
   - platform: template
     name: "All controllers control"
@@ -363,7 +379,7 @@ switch:
       - climate.control:
           id: waterfloor_controller
           mode: "OFF"
-
+  
 output:
   - platform: ledc
     pin:
@@ -377,7 +393,7 @@ output:
 light:
   - platform: monochromatic
     id: backlight
-    name: "Display backliqht"
+    name: "display backliqht"
     output: display_backlight_out
     restore_mode: RESTORE_DEFAULT_OFF
 
@@ -393,17 +409,23 @@ display:
     id: mydisplay
     update_interval: never
     lambda: |-
+      it.set_rotation(DISPLAY_ROTATION_180_DEGREES);
       //2 floor temp
-      it.printf(0, 10, id(tahoma_digits), "%2.1f°C", id(floor2_temperature_id).state);
+      it.printf(0, 10, id(tahoma_digits), "%2.1f°C%c", id(floor2_temperature_id).state, id(floor2_vcc_id).state < 2.0?'!':' ');
       //1 floor temp
-      it.printf(0, 30, id(tahoma_digits), "%2.1f°C", id(floor1_temperature_id).state);
+      it.printf(0, 30, id(tahoma_digits), "%2.1f°C%c", id(floor1_temperature_id).state, id(floor1_vcc_id).state < 2.0?'!':' ');
       //Warmfloor temp
       it.printf(9, 49, id(tahoma_digits), "%2.1f°C", id(waterfloor_temperature_id).state);
-      //boiler heater temp
-      it.printf(75, 49, id(tahoma_digits), "%2.1f°C", id(remote_htemp_id).state);
-      //boiler water temp
-      it.printf(90, 10, id(tahoma_digits), "%2.1f°C", id(remote_wtemp_id).state);
+      //boiler temp
+      it.printf(80, 49, id(tahoma_digits), "%2.1f°C", id(boiler_temperature_id).state);
 
+      //draw boiler
+      it.rectangle(77, 25, 50, 39);
+      if (id(relayb).state)
+      {
+        it.print(102, 30, id(tahoma_digits), TextAlign::TOP_CENTER, "ON");        
+      }
+      
       //draw home
       it.line(0,8,19,0); it.line(20,0,40,8); it.line(0,25,40,25);       
       it.line(0, 63, 35, 63); it.line(0, 63, 10, 45); it.line( 10, 45, 45, 45); // it.line(45, 45, 35, 63);
@@ -462,7 +484,7 @@ display:
 
 button:
   - platform: template
-    name: "Away mode"
+    name: "All mode \"Away\""
     on_press:
       then:
         - lambda: |-
@@ -484,9 +506,9 @@ button:
         - climate.control:
             id: waterfloor_controller
             preset: "AWAY"
-
+  
   - platform: template
-    name: "Home mode"
+    name: "All mode \"Home\""
     on_press:
       then:
         - climate.control:
@@ -501,15 +523,15 @@ button:
             id: waterfloor_controller
             preset: "HOME"
             target_temperature: !lambda return id(waterfloor_set_climate);
-    
+      
 climate:
   - platform: thermostat
     name: "Floor 1 Climate Controller"
-    id: "floor1_controller"
+    id: floor1_controller
     sensor: floor1_temperature_id
     min_idle_time: 30s
-    min_heating_off_time: 300s
-    min_heating_run_time: 300s
+    min_heating_off_time: 120s
+    min_heating_run_time: 120s
     heat_deadband: 1
     heat_overrun: 1
     default_preset: HOME
@@ -521,17 +543,24 @@ climate:
     visual:
       min_temperature: 5
     heat_action:
-      - switch.turn_on: relay1
+      - switch.turn_on: relayb
     idle_action:
       - switch.turn_off: relay1
+      - script.execute: boiler_off
+    on_state:
+      - lambda: |-
+          if (x.action == CLIMATE_ACTION_HEATING && id(boiler_permission).state && !id(relay1).state)
+            id(relay1).turn_on();
+          if (!id(boiler_permission).state && id(relay1).state)
+            id(relay1).turn_off();
 
   - platform: thermostat
     name: "Floor 2 Climate Controller"
-    id: "floor2_controller"
+    id: floor2_controller
     sensor: floor2_temperature_id
     min_idle_time: 30s
-    min_heating_off_time: 300s
-    min_heating_run_time: 300s
+    min_heating_off_time: 120s
+    min_heating_run_time: 120s
     heat_deadband: 1
     heat_overrun: 1
     default_preset: HOME
@@ -543,17 +572,24 @@ climate:
     visual:
       min_temperature: 5
     heat_action:
-      - switch.turn_on: relay2
+      - switch.turn_on: relayb
     idle_action:
       - switch.turn_off: relay2
-
+      - script.execute: boiler_off
+    on_state:
+      - lambda: |-
+          if (x.action == CLIMATE_ACTION_HEATING && id(boiler_permission).state && !id(relay2).state)
+            id(relay2).turn_on();
+          if (!id(boiler_permission).state && id(relay2).state)
+            id(relay2).turn_off();
+  
   - platform: thermostat
     name: "Waterfloor Climate Controller"
-    id: "waterfloor_controller"
+    id: waterfloor_controller
     sensor: waterfloor_temperature_id
     min_idle_time: 30s
-    min_heating_off_time: 300s
-    min_heating_run_time: 300s
+    min_heating_off_time: 120s
+    min_heating_run_time: 120s
     heat_deadband: 1
     heat_overrun: 1
     default_preset: HOME
@@ -566,29 +602,18 @@ climate:
       min_temperature: 5
       max_temperature: 40
     heat_action:
-      - switch.turn_on: relay3
+      - switch.turn_on: relayb
     idle_action:
       - switch.turn_off: relay3
-
-http_request:
-  useragent: esphome/device
-  timeout: 1s
-  id: http_request_data
+      - script.execute: boiler_off
+    on_state:
+      - lambda: |-
+          if (x.action == CLIMATE_ACTION_HEATING && id(boiler_permission).state && !id(relay3).state)
+            id(relay3).turn_on();
+          if (!id(boiler_permission).state && id(relay3).state)
+            id(relay3).turn_off();
 
 interval:
-  # получение информации с котла
-  - interval: 1min
-    then:
-      - http_request.get:
-          url: http://192.168.10.69/cm?cmnd=Status%2010
-          on_response:
-            then:
-              - lambda: |-
-                  json::parse_json(id(http_request_data).get_string(), [](JsonObject root) {
-                      id(remote_htemp_id).publish_state(root["StatusSNS"]["DHT11"]["Temperature"]);
-                      id(remote_wtemp_id).publish_state(root["StatusSNS"]["DHT11"]["Humidity"]);
-                  });
-              - component.update: mydisplay
   # таймауты датчиков
   - interval: 5min
     then:
@@ -602,8 +627,13 @@ interval:
           if (id(floor2_data_timeout) > 3) {
             id(floor2_temperature_id).publish_state(NAN);
             id(floor2_data_timeout) = 0;}
-            
-          id(waterfloor_data_timeout)++;
-          if (id(waterfloor_data_timeout) > 3) {
-            id(waterfloor_temperature_id).publish_state(NAN);
-            id(waterfloor_data_timeout) = 0;}
+
+script:
+  - id: boiler_off
+    then:
+      - lambda: |-
+            if (id(floor1_controller).action != CLIMATE_ACTION_HEATING &&  
+                id(floor2_controller).action != CLIMATE_ACTION_HEATING &&  
+                  id(waterfloor_controller).action != CLIMATE_ACTION_HEATING &&
+                    id(relayb).state)
+                    { id(relayb).turn_off(); };
