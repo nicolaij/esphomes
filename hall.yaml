@@ -2,15 +2,10 @@ esphome:
   name: hall
   platformio_options:
     board_build.f_cpu: 80000000L
-  includes:
-    - http_sensor_idf.h
 
 esp32:
   board: esp32dev
-  framework:
-    type: esp-idf
-    platform_version: 5.4.0
-    version: 4.4.5
+
 
 wifi:
   ssid: !secret wifi_ssid_home
@@ -45,11 +40,6 @@ web_server:
   js_include: "www.js"
   js_url: ""
 
-#status_led:
-#  pin:
-#    number: GPIO2
-#    inverted: false
-
 binary_sensor:
   - platform: gpio
     pin:
@@ -58,90 +48,40 @@ binary_sensor:
     filters:
       - delayed_on: 50ms
     name: "Boot button"
+    on_press:
+      then:
+        - sensor.rotary_encoder.set_value:
+            id: encoder_id
+            value: 0
+
+  - platform: gpio
+    pin: 21
+    name: "Zero"
+    on_press:
+      then:
+        - sensor.rotary_encoder.set_value:
+            id: encoder_id
+            value: 0
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: false
 
 # Individual sensors
 sensor:
   - platform: uptime
     name: Uptime Sensor
     id: uptime_id
-    update_interval: 5min
+    update_interval: 1min
 
   - platform: esp32_hall
     name: "ESP32 Hall Sensor"
     id: hall_id
-    update_interval: 100s
+    update_interval: 30s
 
-  - platform: custom
-    lambda: |-
-      auto tasmota_sensors = new HTTPSensor("http://192.168.10.69/cm?cmnd=Status%2010", "StatusSNS.DHT11.Temperature;StatusSNS.DHT11.Humidity");
-      tasmota_sensors->set_update_interval(30000);
-      App.register_component(tasmota_sensors);
-      return {tasmota_sensors->sensors_array[0], tasmota_sensors->sensors_array[1]};
-
-    sensors:
-      - name: "Remote Temperature Sensor"
-        unit_of_measurement: °C
-        device_class: TEMPERATURE
-        id: remote_temp_id
-        accuracy_decimals: 1
-      - name: "Remote Humidity Sensor"
-        unit_of_measurement: "%"
-        accuracy_decimals: 0
-        id: remote_hum_id
-
-  - platform: custom
-    lambda: |-
-      auto esphome_restapi_sensor2 = new HTTPSensor("http://192.168.10.101/sensor/ens160_sensor_eco2", "value");
-      esphome_restapi_sensor2->set_update_interval(12000);
-      App.register_component(esphome_restapi_sensor2);
-      return {esphome_restapi_sensor2->sensors_array[0]};
-    sensors:
-      - name: "Датчик CO2"
-        unit_of_measurement: "%"
-        accuracy_decimals: 0
-        
-select:
-  - platform: template
-    name: Mode
-    id: mode
-    options:
-      - "Option1"
-      - "Option2"
-      - "Option3"
-    #    initial_option: "OFF"
-    optimistic: true
-    set_action:
-      - logger.log:
-          format: "Chosen option: %s"
-          args: ["x.c_str()"]
-
-lock:
-  - platform: template
-    name: Lock comp
-    optimistic: true
-    on_lock:
-      - logger.log: "Door Locked!"
-    on_unlock:
-      - logger.log: "Door Unlocked!"
-
-font:
-  - file: "fonts/tahomabd.ttf"
-    id: tahoma_clock
-    size: 80
-  - file: "fonts/tahomabd.ttf"
-    id: tahoma_16
-    size: 16
-
-spi:
-  clk_pin: GPIO14
-  mosi_pin: GPIO13
-
-display:
-  - platform: st7567
-    cs_pin: GPIO15
-    dc_pin: GPIO27
-    reset_pin: GPIO26
-    lambda: |-
-      it.line(0, 0, 127, 63);
-      it.circle(64, 32, 20);
-
+  - platform: rotary_encoder
+    id: encoder_id
+    name: "Encoder"
+    pin_a: 22
+    pin_b: 23
