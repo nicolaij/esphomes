@@ -23,10 +23,10 @@ wifi:
     password: !secret ap_password
   power_save_mode: HIGH
   manual_ip:
-    static_ip: 192.168.10.70
-    gateway: 192.168.10.1
+    static_ip: 192.168.1.20
+    gateway: 192.168.1.1
     subnet: 255.255.255.0
-    dns1: 192.168.10.1
+    dns1: 192.168.1.1
 
 # Enable logging
 logger:
@@ -539,7 +539,7 @@ climate:
       - name: HOME
         default_target_temperature_low: 22 °C
       - name: AWAY
-        default_target_temperature_low: 7 °C
+        default_target_temperature_low: 10 °C
     visual:
       min_temperature: 5
     heat_action:
@@ -568,7 +568,7 @@ climate:
       - name: HOME
         default_target_temperature_low: 20 °C
       - name: AWAY
-        default_target_temperature_low: 7 °C
+        default_target_temperature_low: 10 °C
     visual:
       min_temperature: 5
     heat_action:
@@ -595,9 +595,9 @@ climate:
     default_preset: HOME
     preset:
       - name: HOME
-        default_target_temperature_low: 30 °C
+        default_target_temperature_low: 25 °C
       - name: AWAY
-        default_target_temperature_low: 7 °C
+        default_target_temperature_low: 10 °C
     visual:
       min_temperature: 5
       max_temperature: 40

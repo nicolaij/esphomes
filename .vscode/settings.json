@@ -1,3 +1,4 @@
 {
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
+    "cmake.sourceDirectory": "/home/nicolai/Документы/PlatformIO/esphome/esphomes/.esphome/build/gorenichi/.piolibdeps/gorenichi/ESPAsyncWebServer-esphome"
 }
