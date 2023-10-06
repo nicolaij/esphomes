@@ -217,10 +217,18 @@ sensor:
     lambda: |-
       auto my_sensor = new UDPSensor();
       App.register_component(my_sensor);
-      return {my_sensor};
+      return {my_sensor->temperature_sensor, my_sensor->humidity_sensor, my_sensor->voltage_sensor};
   
     sensors:
-      name: "My Custom Sensor"
+      - name: "Remote temperature"
+        unit_of_measurement: "°C"
+        accuracy_decimals: 1      
+      - name: "Remote humidity"
+        unit_of_measurement: "%"
+        accuracy_decimals: 0      
+      - name: "Remote voltage"
+        unit_of_measurement: "v"
+        accuracy_decimals: 3
 
   #данные с датчиков
   - platform: template
