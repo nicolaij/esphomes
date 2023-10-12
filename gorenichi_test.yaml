@@ -215,7 +215,7 @@ dallas:
 sensor:
   - platform: custom
     lambda: |-
-      auto my_sensor = new UDPSensor();
+      auto my_sensor = new UDPSensor(12345);
       App.register_component(my_sensor);
       return {my_sensor->temperature_sensor, my_sensor->humidity_sensor, my_sensor->voltage_sensor};
   
@@ -227,6 +227,23 @@ sensor:
         unit_of_measurement: "%"
         accuracy_decimals: 0      
       - name: "Remote voltage"
+        unit_of_measurement: "v"
+        accuracy_decimals: 3
+
+  - platform: custom
+    lambda: |-
+      auto my_sensor = new TCPSensor(2345);
+      App.register_component(my_sensor);
+      return {my_sensor->temperature_sensor, my_sensor->humidity_sensor, my_sensor->voltage_sensor};
+  
+    sensors:
+      - name: "TCP temperature"
+        unit_of_measurement: "°C"
+        accuracy_decimals: 1      
+      - name: "TCP humidity"
+        unit_of_measurement: "%"
+        accuracy_decimals: 0      
+      - name: "TCP voltage"
         unit_of_measurement: "v"
         accuracy_decimals: 3
 

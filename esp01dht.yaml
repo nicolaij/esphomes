@@ -1,5 +1,10 @@
 esphome:
-  name: esp01dht
+#  name: esp01dht2
+  name: esp01dht1
+  on_boot:
+    priority: 250
+    then:  
+      - component.update: dht_id
 
 esp8266:
   board: esp01_1m
@@ -7,14 +12,19 @@ esp8266:
 #    type: esp-idf
 
 wifi:
-  ssid: !secret wifi_ssid_home
-  password: !secret wifi_password_home
+  ssid: !secret wifi_ssid_home2
+  password: !secret wifi_password_home2
   reboot_timeout: 0s
   ap:
-    ssid: "esp01dht1"
+    ssid: "APesp01dht"
     password: !secret ap_password  
     ap_timeout: 20s
 #  power_save_mode: HIGH
+  manual_ip:
+    static_ip: 192.168.10.21
+    gateway: 192.168.10.1
+    subnet: 255.255.255.0
+    dns1: 192.168.10.1
 
 #captive_portal:
 
@@ -35,21 +45,68 @@ web_server:
   ota: false
   version: 1
 
+http_request:
+  useragent: esphome/device
+  timeout: 5s
+
 # Individual sensors
-sensor:   
+sensor:
   - platform: uptime
     name: Uptime Sensor
     update_interval: 5min
 
   - platform: dht
+    id: dht_id
     model: DHT11
     pin: 2
+    update_interval: never
     temperature:
       name: "Living Room Temperature"
+      id: dht_temp_id
+      on_value:
+        then:
+          - http_request.post:
+              url: !lambda |-
+                char buf[128];
+                sprintf(buf,  "http://192.168.10.20/number/floor_1_sensor_temperature_data/set?value=%f", id(dht_temp_id).state * 10);
+                //sprintf(buf,  "http://192.168.10.20/number/floor_2_sensor_temperature_data/set?value=%f", id(dht_temp_id).state * 10);
+                return buf;
+          
     humidity:
       name: "Living Room Humidity"
-    update_interval: 60s
+      id: dht_hum_id
+      on_value:
+        then:
+          - http_request.post:
+              url: !lambda |-
+                char buf[128];
+                sprintf(buf,  "http://192.168.10.20/number/floor_1_sensor_humidity_data/set?value=%f", id(dht_hum_id).state);
+                //sprintf(buf,  "http://192.168.10.20/number/floor_2_sensor_humidity_data/set?value=%f", id(dht_hum_id).state);
+                return buf;
+          - component.update: vcc_id
 
   - platform: adc
     pin: VCC
     name: "VCC Voltage"
+    id: vcc_id
+    update_interval: never
+    on_value:
+      then:
+        - http_request.post:
+            url: !lambda |-
+              char buf[128];
+              sprintf(buf,  "http://192.168.10.20/number/floor_1_sensor_vcc_data/set?value=%f", id(vcc_id).state * 1000);
+              //sprintf(buf,  "http://192.168.10.20/number/floor_2_sensor_vcc_data/set?value=%f", id(vcc_id).state * 1000);
+              return buf;
+        - delay: 15s
+        - deep_sleep.enter:
+            id: deep_sleep_1
+            sleep_duration: 10min
+    
+# Example configuration entry
+deep_sleep:
+  run_duration: 60s
+  sleep_duration: 10min
+  id: deep_sleep_1
+
+
