@@ -1,6 +1,11 @@
+substitutions:
+  num: "1"
+  name: floor_$num
+  network: "192.168.1"
+  server: $network.20
+
 esphome:
-#  name: esp01dht2
-  name: esp01dht1
+  name: esp01dht-$num
   on_boot:
     priority: 250
     then:  
@@ -12,19 +17,18 @@ esp8266:
 #    type: esp-idf
 
 wifi:
-  ssid: !secret wifi_ssid_home2
-  password: !secret wifi_password_home2
+  ssid: !secret wifi_ssid_home
+  password: !secret wifi_password_home
   reboot_timeout: 0s
   ap:
-    ssid: "APesp01dht"
+    ssid: AP_$name
     password: !secret ap_password  
-    ap_timeout: 20s
 #  power_save_mode: HIGH
   manual_ip:
-    static_ip: 192.168.10.21
-    gateway: 192.168.10.1
+    static_ip: $network.2$num
+    gateway: $network.1
     subnet: 255.255.255.0
-    dns1: 192.168.10.1
+    dns1: $network.1
 
 #captive_portal:
 
@@ -68,8 +72,7 @@ sensor:
           - http_request.post:
               url: !lambda |-
                 char buf[128];
-                sprintf(buf,  "http://192.168.10.20/number/floor_1_sensor_temperature_data/set?value=%f", id(dht_temp_id).state * 10);
-                //sprintf(buf,  "http://192.168.10.20/number/floor_2_sensor_temperature_data/set?value=%f", id(dht_temp_id).state * 10);
+                sprintf(buf,  "http://%s/number/%s_sensor_temperature_data/set?value=%f","$server", "$name", id(dht_temp_id).state * 10);
                 return buf;
           
     humidity:
@@ -80,8 +83,7 @@ sensor:
           - http_request.post:
               url: !lambda |-
                 char buf[128];
-                sprintf(buf,  "http://192.168.10.20/number/floor_1_sensor_humidity_data/set?value=%f", id(dht_hum_id).state);
-                //sprintf(buf,  "http://192.168.10.20/number/floor_2_sensor_humidity_data/set?value=%f", id(dht_hum_id).state);
+                sprintf(buf,  "http://%s/number/%s_sensor_humidity_data/set?value=%f","$server", "$name", id(dht_hum_id).state);
                 return buf;
           - component.update: vcc_id
 
@@ -95,8 +97,7 @@ sensor:
         - http_request.post:
             url: !lambda |-
               char buf[128];
-              sprintf(buf,  "http://192.168.10.20/number/floor_1_sensor_vcc_data/set?value=%f", id(vcc_id).state * 1000);
-              //sprintf(buf,  "http://192.168.10.20/number/floor_2_sensor_vcc_data/set?value=%f", id(vcc_id).state * 1000);
+              sprintf(buf,  "http://%s/number/%s_sensor_vcc_data/set?value=%f","$server", "$name", id(vcc_id).state * 1000);
               return buf;
         - delay: 15s
         - deep_sleep.enter:
@@ -105,7 +106,7 @@ sensor:
     
 # Example configuration entry
 deep_sleep:
-  run_duration: 60s
+  run_duration: 3min
   sleep_duration: 10min
   id: deep_sleep_1
 
