@@ -35,7 +35,7 @@ wifi:
 # Enable logging
 logger:
   #level: VERY_VERBOSE
-  level: DEBUG
+  #level: DEBUG
 
 # Enable Home Assistant API
 api:
@@ -69,6 +69,7 @@ sensor:
       id: dht_temp_id
       on_value:
         then:
+          - delay: 5s        
           - http_request.post:
               url: !lambda |-
                 char buf[128];
@@ -80,6 +81,7 @@ sensor:
       id: dht_hum_id
       on_value:
         then:
+          - delay: 10s
           - http_request.post:
               url: !lambda |-
                 char buf[128];
@@ -99,10 +101,10 @@ sensor:
               char buf[128];
               sprintf(buf,  "http://%s/number/%s_sensor_vcc_data/set?value=%f","$server", "$name", id(vcc_id).state * 1000);
               return buf;
-        - delay: 15s
+        - delay: 30s
         - deep_sleep.enter:
             id: deep_sleep_1
-            sleep_duration: 10min
+            sleep_duration: 9min
     
 # Example configuration entry
 deep_sleep:

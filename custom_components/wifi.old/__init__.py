@@ -34,13 +34,11 @@ from esphome.const import (
     CONF_EAP,
 )
 from esphome.core import CORE, HexInt, coroutine_with_priority
-from esphome.components.esp32 import add_idf_sdkconfig_option, get_esp32_variant, const
+from esphome.components.esp32 import add_idf_sdkconfig_option
 from esphome.components.network import IPAddress
 from . import wpa2_eap
 
 AUTO_LOAD = ["network"]
-
-NO_WIFI_VARIANTS = [const.VARIANT_ESP32H2]
 
 wifi_ns = cg.esphome_ns.namespace("wifi")
 EAPAuth = wifi_ns.struct("EAPAuth")
@@ -150,13 +148,6 @@ WIFI_NETWORK_STA = WIFI_NETWORK_BASE.extend(
 )
 
 
-def validate_variant(_):
-    if CORE.is_esp32:
-        variant = get_esp32_variant()
-        if variant in NO_WIFI_VARIANTS:
-            raise cv.Invalid(f"{variant} does not support WiFi")
-
-
 def final_validate(config):
     has_sta = bool(config.get(CONF_NETWORKS, True))
     has_ap = CONF_AP in config
@@ -208,7 +199,6 @@ FINAL_VALIDATE_SCHEMA = cv.All(
         extra=cv.ALLOW_EXTRA,
     ),
     final_validate,
-    validate_variant,
 )
 
 
@@ -282,12 +272,7 @@ CONFIG_SCHEMA = cv.All(
                 CONF_REBOOT_TIMEOUT, default="15min"
             ): cv.positive_time_period_milliseconds,
             cv.SplitDefault(
-                CONF_POWER_SAVE_MODE,
-                esp8266="none",
-                esp32="light",
-                rp2040="light",
-                bk72xx="none",
-                rtl87xx="none",
+                CONF_POWER_SAVE_MODE, esp8266="none", esp32="light", rp2040="light"
             ): cv.enum(WIFI_POWER_SAVE_MODES, upper=True),
             cv.Optional(CONF_FAST_CONNECT, default=False): cv.boolean,
             cv.Optional(CONF_USE_ADDRESS): cv.string_strict,

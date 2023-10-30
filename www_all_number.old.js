@@ -1179,7 +1179,7 @@ class Kt {
   }
   _range(t, e, i, s, n, o, h) {
     return d`<div class="range"><label>${n || 0}</label> <input type="${
-      t.mode == 1 ? "number" : "range"
+      "number"
     }" name="${t.unique_id}" id="${t.unique_id}" step="${h || 1}" min="${
       n || Math.min(0, s)
     }" max="${o || Math.max(10, s)}" value="${s}" @change="${(l) => {
