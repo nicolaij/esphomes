@@ -238,9 +238,8 @@ void WiFiComponent::setup_ap_config_() {
     ESP_LOGCONFIG(TAG, "  AP Subnet: '%s'", manual.subnet.str().c_str());
   }
 
-  //Disable STA
+    //Disable STA
   this->sta_.clear();
-
 
   this->ap_setup_ = this->wifi_start_ap_(this->ap_);
   ESP_LOGCONFIG(TAG, "  IP Address: %s", this->wifi_soft_ap_ip().str().c_str());

@@ -126,7 +126,7 @@ const at = window.reactiveElementPolyfillSupport,
     reflect: !1,
     hasChanged: ht,
   };
-class A extends HTMLElement {
+class x extends HTMLElement {
   constructor() {
     super(),
       (this._$Et = new Map()),
@@ -407,11 +407,11 @@ class A extends HTMLElement {
   updated(t) {}
   firstUpdated(t) {}
 }
-(A.finalized = !0),
-  (A.elementProperties = new Map()),
-  (A.elementStyles = []),
-  (A.shadowRootOptions = { mode: "open" }),
-  at == null || at({ ReactiveElement: A }),
+(x.finalized = !0),
+  (x.elementProperties = new Map()),
+  (x.elementStyles = []),
+  (x.shadowRootOptions = { mode: "open" }),
+  at == null || at({ ReactiveElement: x }),
   ((J = globalThis.reactiveElementVersions) !== null && J !== void 0
     ? J
     : (globalThis.reactiveElementVersions = [])
@@ -422,8 +422,8 @@ const j = globalThis.trustedTypes,
   _ = `lit$${(Math.random() + "").slice(9)}$`,
   dt = "?" + _,
   Tt = `<${dt}>`,
-  x = document,
-  P = (r = "") => x.createComment(r),
+  A = document,
+  P = (r = "") => A.createComment(r),
   U = (r) => r === null || (typeof r != "object" && typeof r != "function"),
   ut = Array.isArray,
   Ht = (r) => {
@@ -446,11 +446,11 @@ const j = globalThis.trustedTypes,
     (r) =>
     (t, ...e) => ({ _$litType$: r, strings: t, values: e }),
   d = mt(1),
-  Rt = mt(2),
+  Mt = mt(2),
   E = Symbol.for("lit-noChange"),
   p = Symbol.for("lit-nothing"),
   _t = new WeakMap(),
-  Nt = (r, t, e) => {
+  Rt = (r, t, e) => {
     var i, s;
     const n =
       (i = e == null ? void 0 : e.renderBefore) !== null && i !== void 0
@@ -462,7 +462,7 @@ const j = globalThis.trustedTypes,
         (s = e == null ? void 0 : e.renderBefore) !== null && s !== void 0
           ? s
           : null;
-      n._$litPart$ = o = new R(
+      n._$litPart$ = o = new M(
         t.insertBefore(P(), h),
         h,
         void 0,
@@ -471,8 +471,8 @@ const j = globalThis.trustedTypes,
     }
     return o._$AI(r), o;
   },
-  S = x.createTreeWalker(x, 129, null, !1),
-  Mt = (r, t) => {
+  S = A.createTreeWalker(A, 129, null, !1),
+  Nt = (r, t) => {
     const e = r.length - 1,
       i = [];
     let s,
@@ -526,7 +526,7 @@ class H {
       o = 0;
     const h = t.length - 1,
       l = this.parts,
-      [a, g] = Mt(t, e);
+      [a, g] = Nt(t, e);
     if (
       ((this.el = H.createElement(a, i)),
       (S.currentNode = this.el.content),
@@ -587,7 +587,7 @@ class H {
     }
   }
   static createElement(t, e) {
-    const i = x.createElement("template");
+    const i = A.createElement("template");
     return (i.innerHTML = t), i;
   }
 }
@@ -635,7 +635,7 @@ class Bt {
       n = (
         (e = t == null ? void 0 : t.creationScope) !== null && e !== void 0
           ? e
-          : x
+          : A
       ).importNode(i, !0);
     S.currentNode = n;
     let o = S.nextNode(),
@@ -646,7 +646,7 @@ class Bt {
       if (h === a.index) {
         let g;
         a.type === 2
-          ? (g = new R(o, o.nextSibling, this, t))
+          ? (g = new M(o, o.nextSibling, this, t))
           : a.type === 1
           ? (g = new a.ctor(o, a.name, a.strings, this, t))
           : a.type === 6 && (g = new zt(o, this, t)),
@@ -667,7 +667,7 @@ class Bt {
         e++;
   }
 }
-class R {
+class M {
   constructor(t, e, i, s) {
     var n;
     (this.type = 2),
@@ -721,7 +721,7 @@ class R {
   $(t) {
     this._$AH !== p && U(this._$AH)
       ? (this._$AA.nextSibling.data = t)
-      : this.S(x.createTextNode(t)),
+      : this.S(A.createTextNode(t)),
       (this._$AH = t);
   }
   T(t) {
@@ -750,7 +750,7 @@ class R {
       s = 0;
     for (const n of t)
       s === e.length
-        ? e.push((i = new R(this.A(P()), this.A(P()), this, this.options)))
+        ? e.push((i = new M(this.A(P()), this.A(P()), this, this.options)))
         : (i = e[s]),
         i._$AI(n),
         s++;
@@ -886,13 +886,13 @@ class zt {
   }
 }
 const yt = window.litHtmlPolyfillSupport;
-yt == null || yt(H, R),
+yt == null || yt(H, M),
   ((Z = globalThis.litHtmlVersions) !== null && Z !== void 0
     ? Z
     : (globalThis.litHtmlVersions = [])
   ).push("2.0.1");
 var Y, G;
-class f extends A {
+class f extends x {
   constructor() {
     super(...arguments),
       (this.renderOptions = { host: this }),
@@ -911,7 +911,7 @@ class f extends A {
     const e = this.render();
     this.hasUpdated || (this.renderOptions.isConnected = this.isConnected),
       super.update(t),
-      (this._$Dt = Nt(e, this.renderRoot, this.renderOptions));
+      (this._$Dt = Rt(e, this.renderRoot, this.renderOptions));
   }
   connectedCallback() {
     var t;
@@ -938,7 +938,7 @@ bt == null || bt({ LitElement: f });
   ? G
   : (globalThis.litElementVersions = [])
 ).push("3.0.1");
-const N = (r) => (t) =>
+const R = (r) => (t) =>
     typeof t == "function"
       ? ((e, i) => (window.customElements.define(e, i), i))(r, t)
       : ((e, i) => {
@@ -980,7 +980,7 @@ function $(r) {
         })(r, t, e)
       : It(r, t);
 }
-function M(r) {
+function N(r) {
   return $(O(k({}, r), { state: !0 }));
 }
 const qt =
@@ -1135,13 +1135,13 @@ let Jt = et(),
       return [
         X,
         wt,
-        w`table{border-spacing:0;border-collapse:collapse;width:100%;border:1px solid currentColor;background-color:var(--c-bg)}th{font-weight:600;text-align:left}td,th{padding:.25rem .5rem;border:1px solid currentColor}td:nth-child(2),th:nth-child(2){text-align:center}tr th,tr:nth-child(2n){background-color:rgba(127,127,127,.3)}select{background-color:inherit;color:inherit;width:100%;border-radius:4px}option{color:currentColor;background-color:var(--primary-color,currentColor)}input[type=range]{width:calc(100% - 8rem);height:.75rem}.range{text-align:center}`,
+        w`table{border-spacing:0;border-collapse:collapse;width:100%;border:1px solid currentColor;background-color:var(--c-bg)}th{font-weight:600;text-align:left}td,th{padding:.25rem .5rem;border:1px solid currentColor}td:nth-child(2),th:nth-child(2){text-align:center}tr th,tr:nth-child(2n){background-color:rgba(127,127,127,.3)}select{background-color:inherit;color:inherit;width:100%;border-radius:4px}option{color:currentColor;background-color:var(--primary-color,currentColor)}input[type=range],input[type=text]{width:calc(100% - 8rem);height:.75rem}.range,.text{text-align:center}`,
       ];
     }
   };
-tt([M()], I.prototype, "entities", 2);
-tt([M()], I.prototype, "has_controls", 2);
-I = tt([N("esp-entity-table")], I);
+tt([N()], I.prototype, "entities", 2);
+tt([N()], I.prototype, "has_controls", 2);
+I = tt([R("esp-entity-table")], I);
 class Kt {
   exec(t) {
     if (!this[t] || typeof this[t] != "function") {
@@ -1187,6 +1187,19 @@ class Kt {
       let a = (g = l.target) == null ? void 0 : g.value;
       (c = this.actioner) == null || c.restAction(t, `${e}?${i}=${a}`);
     }}"> <label>${o || 100}</label></div>`;
+  }
+  _textinput(t, e, i, s, n, o, h) {
+    return d`<div class="text"><input type="${
+      t.mode == 1 ? "password" : "text"
+    }" name="${t.unique_id}" id="${t.unique_id}" minlength="${
+      n || Math.min(0, s)
+    }" maxlength="${o || Math.max(255, s)}" pattern="${
+      h || ""
+    }" value="${s}" @change="${(l) => {
+      var g, c;
+      let a = (g = l.target) == null ? void 0 : g.value;
+      (c = this.actioner) == null || c.restAction(t, `${e}?${i}=${a}`);
+    }}"></div>`;
   }
   render_switch() {
     if (!!this.entity)
@@ -1299,6 +1312,18 @@ class Kt {
         this.entity.step
       );
   }
+  render_text() {
+    if (!!this.entity)
+      return this._textinput(
+        this.entity,
+        "set",
+        "value",
+        this.entity.value,
+        this.entity.min_length,
+        this.entity.max_length,
+        this.entity.pattern
+      );
+  }
   render_climate() {
     if (!this.entity) return;
     let t, e;
@@ -1397,8 +1422,8 @@ let q = class extends f {
   }
 };
 it([$({ type: Number })], q.prototype, "rows", 2);
-it([M()], q.prototype, "logs", 2);
-q = it([N("esp-log")], q);
+it([N()], q.prototype, "logs", 2);
+q = it([R("esp-log")], q);
 var Yt = Object.defineProperty,
   Gt = Object.getOwnPropertyDescriptor,
   y = (r, t, e, i) => {
@@ -1410,7 +1435,7 @@ var Yt = Object.defineProperty,
       (o = r[n]) && (s = (i ? o(t, e, s) : o(s)) || s);
     return i && s && Yt(t, e, s), s;
   };
-const At = "checkbox-lever";
+const xt = "checkbox-lever";
 let m = class extends f {
   constructor() {
     super(...arguments);
@@ -1426,7 +1451,7 @@ let m = class extends f {
   firstUpdated(r) {
     var t;
     this.checkbox =
-      (t = this.shadowRoot) == null ? void 0 : t.getElementById(At);
+      (t = this.shadowRoot) == null ? void 0 : t.getElementById(xt);
   }
   isOn() {
     return this.state === this.stateOn;
@@ -1439,7 +1464,7 @@ let m = class extends f {
   render() {
     return d`<div class="sw"><label>${
       this.labelOff
-    } <input id="${At}" type="checkbox" ?checked="${this.isOn()}" ?disabled="${
+    } <input id="${xt}" type="checkbox" .checked="${this.isOn()}" .disabled="${
       this.disabled
     }" @click="${this.toggle}"> <span style="color:${
       this.color
@@ -1459,7 +1484,7 @@ y([$({ type: String })], m.prototype, "stateOff", 2);
 y([$({ type: String })], m.prototype, "state", 2);
 y([$({ type: String })], m.prototype, "color", 2);
 y([$({ type: Boolean })], m.prototype, "disabled", 2);
-m = y([N("esp-switch")], m);
+m = y([R("esp-switch")], m);
 var Xt =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="7 8 73 56" width="73" height="56"><g style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><g id="b"><path d="M27 16v-4c0-1 1-2.7 2-2.7 2 0 3 1.7 3 2.7v4" id="a"/><use x="9" href="#a"/><use x="18" href="#a"/><use x="27" href="#a"/><use x="36" href="#a"/><use x="45" href="#a"/></g><use transform="matrix(1 0 0 -1 0 72)" href="#b"/><path d="M78 16H26c-1 0-1 1-1 1v38c0 1 0 1 1 1h52c1 0 1 0 1-1V17s0-1-1-1z" class="box"/><path d="M40 38h2.9v7.8h17V38h2.9l-2.9-2.9V30h-1.8v3.3l-6.8-6.8z" class="home" fill="currentColor"/><path d="M24 54H8v-4h12v-4H8v-4h12v-4H8v-4h12v-4H8V18" class="aerial"/></g></svg>',
   te = Object.defineProperty,
@@ -1473,12 +1498,12 @@ var Xt =
       (o = r[n]) && (s = (i ? o(t, e, s) : o(s)) || s);
     return i && s && te(t, e, s), s;
   };
-let xt = class extends f {
+let At = class extends f {
   render() {
-    return Rt([Xt]);
+    return Mt([Xt]);
   }
 };
-xt = ie([N("esp-logo")], xt);
+At = ie([R("esp-logo")], At);
 var se = Object.defineProperty,
   re = Object.getOwnPropertyDescriptor,
   V = (r, t, e, i) => {
@@ -1575,7 +1600,7 @@ let B = class extends f {
     ];
   }
 };
-V([M()], B.prototype, "scheme", 2);
-V([M()], B.prototype, "ping", 2);
+V([N()], B.prototype, "scheme", 2);
+V([N()], B.prototype, "ping", 2);
 V([Vt("#beat")], B.prototype, "beat", 2);
-B = V([N("esp-app")], B);
+B = V([R("esp-app")], B);
