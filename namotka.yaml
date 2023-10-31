@@ -1,0 +1,354 @@
+esphome:
+  name: namotka
+  platformio_options:
+    board_build.f_cpu: 80000000L
+
+esp32:
+  board: esp32dev
+
+wifi:
+  ssid: !secret wifi_ssid_home
+  password: !secret wifi_password_home
+  reboot_timeout: 0s
+  ap:
+    ssid: "Namotka"
+    password: !secret ap_password
+    ap_timeout: 10s
+#  power_save_mode: HIGH
+
+#captive_portal:
+
+# Enable logging
+logger:
+  #level: VERBOSE
+  #level: VERY_VERBOSE
+  #level: INFO
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+  #  local: true
+  ota: false
+  version: 2
+  js_include: "www_all_number.js"
+  js_url: ""
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      inverted: true
+    filters:
+      - delayed_on: 50ms
+    name: "Boot button"
+    on_press:
+      then:
+        - if:
+            condition:
+              - lambda: "return id(id_layer_mode) < 10;"
+            then:
+              - button.press: id_layer_home
+            else:
+              - button.press: id_layer_start
+
+  - platform: gpio
+    pin: 21
+    name: "Encoder click"
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      then:
+        - sensor.rotary_encoder.set_value:
+            id: encoder_id
+            value: 0
+
+  - platform: gpio
+    pin:
+      inverted: true
+      number: 15
+      mode:
+        input: true
+        pullup: true
+    name: "Layer home switch"
+    id: id_home
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: false
+
+globals:
+  - id: id_layer_mode
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: id_layer_timeout
+    type: int
+    restore_value: no
+    initial_value: "3"
+  - id: id_stepper_offset
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: id_counter
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: id_direction
+    type: int
+    restore_value: no
+    initial_value: "1"
+
+number:
+  - platform: template
+    name: "V1 Катушка. Шаг начала:"
+    id: id_offset
+    optimistic: true
+    restore_value: true
+    min_value: 0
+    max_value: 1000
+    step: 1
+  - platform: template
+    name: "V2 Катушка. Шаг намотки:"
+    id: id_step
+    optimistic: true
+    restore_value: true
+    min_value: 1
+    max_value: 1000
+    step: 1
+  - platform: template
+    name: "V3 Катушка. Витков на слой:"
+    id: id_one_lay
+    optimistic: true
+    restore_value: true
+    min_value: 1
+    max_value: 1000
+    step: 1
+  - platform: template
+    name: "V4 Катушка. Витков всего:"
+    id: id_total_turns
+    optimistic: true
+    restore_value: true
+    min_value: 1
+    max_value: 10000
+    step: 1
+  - platform: template
+    name: "X4 Намотчик. Текущая позиция: "
+    id: id_layer_position
+    optimistic: true
+    restore_value: false
+    min_value: -1000
+    max_value: 1000
+    step: 1
+  - platform: template
+    name: "X9 Намотчик. Витки: "
+    id: id_layer_cur_turn
+    optimistic: true
+    restore_value: false
+    min_value: 0
+    max_value: 10000
+    step: 1
+
+# Individual sensors
+sensor:
+  - platform: uptime
+    name: Uptime Sensor
+    id: uptime_id
+    update_interval: 1min
+
+  - platform: esp32_hall
+    name: "ESP32 Hall Sensor"
+    id: hall_id
+    update_interval: 30s
+
+  - platform: rotary_encoder
+    id: encoder_id
+    name: "Encoder"
+    pin_a: 22
+    pin_b: 23
+
+stepper:
+  - platform: uln2003
+    id: id_stepper_lay
+    pin_a: 13
+    pin_b: 14
+    pin_c: 26
+    pin_d: 27
+    max_speed: 200 steps/s
+    step_mode: HALF_STEP
+
+button:
+  - platform: template
+    name: "X1 Намотчик. Инициализация"
+    id: id_layer_home
+    on_press:
+      - globals.set:
+          id: id_layer_timeout
+          value: "60"
+      - globals.set:
+          id: id_layer_mode
+          value: "1"
+      - globals.set:
+          id: id_stepper_offset
+          value: "-10"
+      #режим 1 - движение в сторону 0
+      - stepper.set_speed:
+          id: id_stepper_lay
+          speed: 200 steps/s
+      - while:
+          condition:
+            and:
+              - binary_sensor.is_off: id_home
+              - lambda: "return id(id_layer_timeout)-- > 0;"
+          then:
+            - stepper.set_target:
+                id: id_stepper_lay
+                target: !lambda "return id(id_stepper_lay).current_position + id(id_stepper_offset);"
+            - delay: 100 ms
+      #если нет таймаута
+      - lambda: |-
+          auto call = id(id_layer_position).make_call();
+          call.set_value(id(id_stepper_lay).current_position);
+          call.perform();
+      - if:
+          condition:
+            lambda: "return id(id_layer_timeout) > 0;"
+          then:
+            - globals.set:
+                id: id_layer_timeout
+                value: "20"
+            - globals.set:
+                id: id_layer_mode
+                value: "2"
+            - globals.set:
+                id: id_stepper_offset
+                value: "1"
+            #режим 2 - съезд с концевика
+            - while:
+                condition:
+                  and:
+                    - binary_sensor.is_on: id_home
+                    - lambda: "return id(id_layer_timeout)-- > 0;"
+                then:
+                  - stepper.set_target:
+                      id: id_stepper_lay
+                      target: !lambda "return id(id_stepper_lay).current_position + id(id_stepper_offset);"
+                  - while:
+                      condition:
+                        lambda: "return id(id_stepper_lay).current_position != id(id_stepper_lay).target_position;"
+                      then:
+                        - delay: 10ms
+            - lambda: |-
+                auto call = id(id_layer_position).make_call();
+                call.set_value(id(id_stepper_lay).current_position);
+                call.perform();
+            - if:
+                condition:
+                  lambda: "return id(id_layer_timeout) > 0;"
+                then:
+                  - stepper.report_position:
+                      id: id_stepper_lay
+                      position: 0
+                  - stepper.set_target:
+                      id: id_stepper_lay
+                      target: 0
+                  - globals.set:
+                      id: id_layer_mode
+                      value: "10"
+                  # переезд на offset
+                  - stepper.set_speed:
+                      id: id_stepper_lay
+                      speed: 200 steps/s
+                  - stepper.set_target:
+                      id: id_stepper_lay
+                      target: !lambda "return id(id_offset).state;"
+                  - while:
+                      condition:
+                        lambda: "return id(id_stepper_lay).current_position != id(id_stepper_lay).target_position;"
+                      then:
+                        - delay: 10ms
+                  - stepper.report_position:
+                      id: id_stepper_lay
+                      position: 0
+                  - stepper.set_target:
+                      id: id_stepper_lay
+                      target: 0
+                  - lambda: |-
+                      auto call = id(id_layer_position).make_call();
+                      call.set_value(id(id_stepper_lay).current_position);
+                      call.perform();
+                else:
+                  - logger.log: "ERROR. Home switch error!"
+
+          else:
+            - logger.log: "ERROR. Home switch not found!"
+
+  - platform: template
+    name: "X2 Намотчик. START"
+    id: id_layer_start
+    on_press:
+      - if:
+          condition:
+            lambda: 'return id(id_layer_mode) != 10;'
+          then:
+            - logger.log: "ERROR home position!"
+          else:
+            - logger.log: "START!"
+            - script.execute: turn_script
+
+  - platform: template
+    name: "X5 Намотчик. На позицию!"
+    id: id_layer_go
+    on_press:
+      - stepper.set_target:
+          id: id_stepper_lay
+          target: !lambda "return id(id_layer_position).state;"
+
+  - platform: template
+    name: "X3 Намотчик. STOP"
+    id: id_layer_stop
+    on_press:
+      - script.stop: turn_script
+
+script:
+  - id: turn_script
+    then:
+      - globals.set:
+          id: id_counter
+          value: '0'
+      - number.to_min:
+          id: id_layer_cur_turn          
+      - while:
+          condition:
+            lambda: "return id(id_counter) < id(id_total_turns).state;"
+          then:
+            - lambda: |-
+                //направление
+                if ((id(id_counter) / (int)id(id_one_lay).state) % 2 == 0)
+                {
+                  id(id_stepper_lay).set_target(id(id_stepper_lay).current_position + id(id_step).state);
+                }else
+                {
+                  id(id_stepper_lay).set_target(id(id_stepper_lay).current_position - id(id_step).state);
+                }
+                id(id_counter)++;
+            - while:
+                condition:
+                  lambda: "return id(id_stepper_lay).current_position != id(id_stepper_lay).target_position;"
+                then:
+                  - delay: 100ms
+            - number.increment:
+                id: id_layer_cur_turn
+                cycle: false
+      - lambda: |-
+          auto call = id(id_layer_position).make_call();
+          call.set_value(id(id_stepper_lay).current_position);
+          call.perform();            
+
+
