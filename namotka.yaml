@@ -155,6 +155,14 @@ number:
     max_value: 10000
     step: 1
 
+  - platform: template
+    name: "Y3 Намотчик. Скорость: "
+    id: id_layer_speed_turn
+    optimistic: true
+    restore_value: false
+    min_value: 1
+    max_value: 2000
+    step: 1
 # Individual sensors
 sensor:
   - platform: uptime
@@ -182,6 +190,21 @@ stepper:
     pin_d: 27
     max_speed: 200 steps/s
     step_mode: HALF_STEP
+
+  - platform: a4988
+    id: id_stepper2
+    step_pin: 33
+    dir_pin: 32
+    max_speed: 1000 steps/s
+    sleep_pin: 12
+    acceleration: 400
+    deceleration: 400
+
+output:
+  - platform: gpio
+    pin: 25
+    id: gpio_dd1
+
 
 button:
   - platform: template
@@ -300,7 +323,7 @@ button:
             - logger.log: "ERROR home position!"
           else:
             - logger.log: "START!"
-            - script.execute: turn_script
+            - script.execute: go_script
 
   - platform: template
     name: "X5 Намотчик. На позицию!"
@@ -314,10 +337,30 @@ button:
     name: "X3 Намотчик. STOP"
     id: id_layer_stop
     on_press:
-      - script.stop: turn_script
+      - script.stop: go_script
+
+  - platform: template
+    name: "Y1 Намотчик. Виток +1"
+    id: id_layer_turn1
+    on_press:
+      - stepper.set_speed:
+          id: id_stepper2
+          speed: !lambda "return id(id_layer_speed_turn).state;"
+      - lambda: |-
+          id(id_stepper2).set_target(id(id_stepper2).current_position + 96);
+
+  - platform: template
+    name: "Y2 Намотчик. Виток -1"
+    id: id_layer_turn2
+    on_press:
+      - stepper.set_speed:
+          id: id_stepper2
+          speed: !lambda "return id(id_layer_speed_turn).state;"
+      - lambda: |-
+          id(id_stepper2).set_target(id(id_stepper2).current_position - 96);
 
 script:
-  - id: turn_script
+  - id: go_script
     then:
       - globals.set:
           id: id_counter
@@ -349,6 +392,7 @@ script:
       - lambda: |-
           auto call = id(id_layer_position).make_call();
           call.set_value(id(id_stepper_lay).current_position);
-          call.perform();            
+          call.perform();
+
 
 
