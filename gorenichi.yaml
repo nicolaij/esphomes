@@ -301,7 +301,7 @@ switch:
       number: GPIO17
       inverted: true
     id: relay1
-    name: "Relay \"Pump 1\""
+    name: 'Relay "Pump 1"'
     on_turn_on:
       - component.update: mydisplay
     on_turn_off:
@@ -312,7 +312,7 @@ switch:
       number: GPIO5
       inverted: true
     id: relay2
-    name: "Relay \"Pump 2\""
+    name: 'Relay "Pump 2"'
     on_turn_on:
       - component.update: mydisplay
     on_turn_off:
@@ -323,7 +323,7 @@ switch:
       number: GPIO18
       inverted: true
     id: relay3
-    name: "Relay \"Pump 3\""
+    name: 'Relay "Pump 3"'
     on_turn_on:
       - component.update: mydisplay
     on_turn_off:
@@ -344,7 +344,7 @@ switch:
       number: GPIO32
       inverted: false
     id: relayb
-    name: "Relay \"Boiler\""
+    name: 'Relay "Boiler"'
     on_turn_on:
       - component.update: mydisplay
     on_turn_off:
@@ -379,7 +379,7 @@ switch:
       - climate.control:
           id: waterfloor_controller
           mode: "OFF"
-  
+
 output:
   - platform: ledc
     pin:
@@ -425,7 +425,7 @@ display:
       {
         it.print(102, 30, id(tahoma_digits), TextAlign::TOP_CENTER, "ON");        
       }
-      
+
       //draw home
       it.line(0,8,19,0); it.line(20,0,40,8); it.line(0,25,40,25);       
       it.line(0, 63, 35, 63); it.line(0, 63, 10, 45); it.line( 10, 45, 45, 45); // it.line(45, 45, 35, 63);
@@ -484,7 +484,7 @@ display:
 
 button:
   - platform: template
-    name: "All mode \"Away\""
+    name: 'All mode "Away"'
     on_press:
       then:
         - lambda: |-
@@ -506,9 +506,9 @@ button:
         - climate.control:
             id: waterfloor_controller
             preset: "AWAY"
-  
+
   - platform: template
-    name: "All mode \"Home\""
+    name: 'All mode "Home"'
     on_press:
       then:
         - climate.control:
@@ -523,7 +523,7 @@ button:
             id: waterfloor_controller
             preset: "HOME"
             target_temperature: !lambda return id(waterfloor_set_climate);
-      
+
 climate:
   - platform: thermostat
     name: "Floor 1 Climate Controller"
@@ -539,7 +539,7 @@ climate:
       - name: HOME
         default_target_temperature_low: 22 °C
       - name: AWAY
-        default_target_temperature_low: 10 °C
+        default_target_temperature_low: 15 °C
     visual:
       min_temperature: 5
     heat_action:
@@ -549,10 +549,23 @@ climate:
       - script.execute: boiler_off
     on_state:
       - lambda: |-
-          if (x.action == CLIMATE_ACTION_HEATING && id(boiler_permission).state && !id(relay1).state)
-            id(relay1).turn_on();
-          if (!id(boiler_permission).state && id(relay1).state)
-            id(relay1).turn_off();
+          if (x.action == CLIMATE_ACTION_HEATING)
+          {
+            if (!id(relay1).state) //реле насоса выключено
+            {
+              if (id(boiler_permission).state && !id(relay3).state)
+              {
+                id(relay1).turn_on();
+              }
+            }
+            else //реле насоса включено
+            {
+              if (id(boiler_temperature_id).state < x.target_temperature_low)
+              {
+                id(relay1).turn_off();
+              }
+            }
+          }      
 
   - platform: thermostat
     name: "Floor 2 Climate Controller"
@@ -566,9 +579,9 @@ climate:
     default_preset: HOME
     preset:
       - name: HOME
-        default_target_temperature_low: 20 °C
+        default_target_temperature_low: 22 °C
       - name: AWAY
-        default_target_temperature_low: 10 °C
+        default_target_temperature_low: 15 °C
     visual:
       min_temperature: 5
     heat_action:
@@ -578,11 +591,24 @@ climate:
       - script.execute: boiler_off
     on_state:
       - lambda: |-
-          if (x.action == CLIMATE_ACTION_HEATING && id(boiler_permission).state && !id(relay2).state)
-            id(relay2).turn_on();
-          if (!id(boiler_permission).state && id(relay2).state)
-            id(relay2).turn_off();
-  
+          if (x.action == CLIMATE_ACTION_HEATING)
+          {
+            if (!id(relay2).state) //реле насоса выключено
+            {
+              if (id(boiler_permission).state && !id(relay3).state)
+              {
+                id(relay2).turn_on();
+              }
+            }
+            else //реле насоса включено
+            {
+              if (id(boiler_temperature_id).state < x.target_temperature_low)
+              {
+                id(relay2).turn_off();
+              }
+            }
+          }
+
   - platform: thermostat
     name: "Waterfloor Climate Controller"
     id: waterfloor_controller
@@ -595,9 +621,9 @@ climate:
     default_preset: HOME
     preset:
       - name: HOME
-        default_target_temperature_low: 25 °C
+        default_target_temperature_low: 30 °C
       - name: AWAY
-        default_target_temperature_low: 10 °C
+        default_target_temperature_low: 15 °C
     visual:
       min_temperature: 5
       max_temperature: 40
@@ -608,10 +634,25 @@ climate:
       - script.execute: boiler_off
     on_state:
       - lambda: |-
-          if (x.action == CLIMATE_ACTION_HEATING && id(boiler_permission).state && !id(relay3).state)
-            id(relay3).turn_on();
-          if (!id(boiler_permission).state && id(relay3).state)
-            id(relay3).turn_off();
+          if (x.action == CLIMATE_ACTION_HEATING)
+          {
+            if (!id(relay3).state) //реле насоса выключено
+            {
+              if (id(boiler_permission).state)
+              {
+                id(relay1).turn_off();
+                id(relay2).turn_off();
+                id(relay3).turn_on();
+              }
+            }
+            else //реле насоса включено
+            {
+              if (id(boiler_temperature_id).state < x.target_temperature_low)
+              {
+                id(relay3).turn_off();
+              }
+            }
+          }
 
 interval:
   # таймауты датчиков
@@ -632,8 +673,7 @@ script:
   - id: boiler_off
     then:
       - lambda: |-
-            if (id(floor1_controller).action != CLIMATE_ACTION_HEATING &&  
-                id(floor2_controller).action != CLIMATE_ACTION_HEATING &&  
-                  id(waterfloor_controller).action != CLIMATE_ACTION_HEATING &&
-                    id(relayb).state)
-                    { id(relayb).turn_off(); };
+          if (id(floor1_controller).action != CLIMATE_ACTION_HEATING &&  
+              id(floor2_controller).action != CLIMATE_ACTION_HEATING &&  
+                id(waterfloor_controller).action != CLIMATE_ACTION_HEATING)
+                  { id(relayb).turn_off(); };
