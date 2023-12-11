@@ -1,7 +1,7 @@
 esphome:
   name: namotka
-  platformio_options:
-    board_build.f_cpu: 80000000L
+#  platformio_options:
+#    board_build.f_cpu: 80000000L
 
 esp32:
   board: esp32dev
@@ -13,7 +13,7 @@ wifi:
   ap:
     ssid: "Namotka"
     password: !secret ap_password
-    ap_timeout: 10s
+    ap_timeout: 0s
 #  power_save_mode: HIGH
 
 #captive_portal:
@@ -33,7 +33,7 @@ ota:
 # Активация web сервера
 web_server:
   port: 80
-  #  local: true
+  #local: true
   ota: false
   version: 2
   js_include: "www_all_number.js"
@@ -51,32 +51,75 @@ binary_sensor:
       then:
         - if:
             condition:
-              - lambda: "return id(id_layer_mode) < 10;"
+              - lambda: "return id(g_layer_mode) < 10;"
             then:
-              - button.press: id_layer_home
+              - button.press: btn_layer_home
             else:
-              - button.press: id_layer_start
-
-  - platform: gpio
-    pin: 21
-    name: "Encoder click"
-    filters:
-      - delayed_on: 50ms
-    on_press:
-      then:
-        - sensor.rotary_encoder.set_value:
-            id: encoder_id
-            value: 0
+              - button.press: btn_layer_start
 
   - platform: gpio
     pin:
       inverted: true
-      number: 15
+      number: 17
       mode:
         input: true
         pullup: true
     name: "Layer home switch"
     id: id_home
+
+  - platform: gpio
+    id: id_turns
+    pin:
+      number: 16
+      inverted: true
+      mode:
+        input: true
+        pullup: false
+    on_press:
+      then:
+        - lambda: |-
+            if (id(fan_rotator).direction == FanDirection::FORWARD) {
+              auto call = id(num_cur_turn).make_call();
+              call.number_increment(true);
+              call.perform();
+            } else {
+              auto call = id(num_cur_turn).make_call();
+              call.number_decrement(true);
+              call.perform();
+            }
+            if (id(g_rotator_turn_stop) == id(num_cur_turn).state)
+            {
+              // Turn the fan off
+              auto call = id(fan_rotator).turn_off();
+              call.perform();
+            } else
+            {
+              if (id(g_layer_mode) > 10) //мотаем
+              {
+                id(g_coil_counter)++;
+
+                int turns_in_layer = int(id(num_width).state / id(num_d).state);
+                int layer_num = id(g_coil_counter) / turns_in_layer;
+                int v = id(g_coil_counter) % turns_in_layer;
+                int pos = 0;
+
+                if ((layer_num % 2 == 0 && id(sl_begin).active_index() == 0) || (layer_num % 2 == 1 && id(sl_begin).active_index() == 1))
+                { //positive
+                  pos = (id(num_offset).state - id(num_layer_position_offset).state + v * id(num_d).state) / id(num_layer_step_size).state;
+                }
+                else
+                { //negative
+                  pos = (id(num_offset).state + id(num_width).state + id(num_layer_position_offset).state - v * id(num_d).state) / id(num_layer_step_size).state;
+                }
+
+                id(id_stepper_lay).set_target(pos);
+
+                auto callp = id(id_layer_position).make_call();
+                callp.set_value(id(id_stepper_lay).target_position);
+                callp.perform();
+              }
+            }
+
 
 status_led:
   pin:
@@ -84,7 +127,7 @@ status_led:
     inverted: false
 
 globals:
-  - id: id_layer_mode
+  - id: g_layer_mode
     type: int
     restore_value: no
     initial_value: "0"
@@ -96,7 +139,7 @@ globals:
     type: int
     restore_value: no
     initial_value: "0"
-  - id: id_counter
+  - id: g_coil_counter
     type: int
     restore_value: no
     initial_value: "0"
@@ -104,154 +147,206 @@ globals:
     type: int
     restore_value: no
     initial_value: "1"
+  - id: g_rotator_turn_stop
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: g_layer_direction
+    type: int
+    restore_value: no
+    initial_value: "0"
 
 number:
   - platform: template
-    name: "V1 Катушка. Шаг начала:"
-    id: id_offset
+    name: "V1 Катушка. Начало:"
+    id: num_offset
     optimistic: true
     restore_value: true
     min_value: 0
-    max_value: 1000
-    step: 1
+    max_value: 100
+    step: 0.01
+    unit_of_measurement: "мм."
   - platform: template
-    name: "V2 Катушка. Шаг намотки:"
-    id: id_step
+    name: "V2 Катушка. D проволоки:"
+    id: num_d
+    optimistic: true
+    restore_value: true
+    min_value: 0
+    max_value: 1
+    step: 0.001
+    unit_of_measurement: "мм."
+  - platform: template
+    name: "V3 Катушка. Ширина:"
+    id: num_width
     optimistic: true
     restore_value: true
     min_value: 1
-    max_value: 1000
-    step: 1
-  - platform: template
-    name: "V3 Катушка. Витков на слой:"
-    id: id_one_lay
-    optimistic: true
-    restore_value: true
-    min_value: 1
-    max_value: 1000
-    step: 1
+    max_value: 100
+    step: 0.01
+    unit_of_measurement: "мм."
   - platform: template
     name: "V4 Катушка. Витков всего:"
-    id: id_total_turns
+    id: num_total_turns
     optimistic: true
     restore_value: true
     min_value: 1
     max_value: 10000
     step: 1
   - platform: template
-    name: "X4 Намотчик. Текущая позиция: "
+    name: "X2 Укладчик. Шаг:"
+    id: num_layer_step_size
+    optimistic: true
+    restore_value: true
+    min_value: 0
+    max_value: 1
+    initial_value: 0.0750
+    step: 0.0001
+    unit_of_measurement: "мм/шаг"
+  - platform: template
+    name: "X3 Укладчик. Смещение:"
+    id: num_layer_position_offset
+    optimistic: true
+    restore_value: true
+    min_value: 0
+    max_value: 10
+    initial_value: 1
+    step: 0.01
+    unit_of_measurement: "мм."
+  - platform: template
+    name: "X4 Укладчик. Текущая позиция: "
     id: id_layer_position
     optimistic: true
     restore_value: false
     min_value: -1000
     max_value: 1000
+    initial_value: 0
     step: 1
+    unit_of_measurement: "шаг."
   - platform: template
-    name: "X9 Намотчик. Витки: "
-    id: id_layer_cur_turn
+    name: "Y2 Намотчик. Витки: "
+    id: num_cur_turn
     optimistic: true
     restore_value: false
+    min_value: -100000
+    max_value: 100000
+    initial_value: 0
+    step: 1
+  - platform: template
+    name: "Y1 Намотчик. Скорость: "
+    id: n_layer_speed_turn
+    optimistic: true
+    restore_value: true
     min_value: 0
-    max_value: 10000
+    max_value: 100
+    initial_value: 90
     step: 1
 
+select:
   - platform: template
-    name: "Y3 Намотчик. Скорость: "
-    id: id_layer_speed_turn
+    name: "V5 Катушка. Начало:"
+    id: sl_begin
     optimistic: true
-    restore_value: false
-    min_value: 1
-    max_value: 2000
-    step: 1
-# Individual sensors
+    options:
+      - "Со стороны привода"
+      - "Со свободной стороны"
+    initial_option: "Со стороны привода"
+    restore_value: true
+
 sensor:
   - platform: uptime
     name: Uptime Sensor
     id: uptime_id
     update_interval: 1min
 
-  - platform: esp32_hall
-    name: "ESP32 Hall Sensor"
-    id: hall_id
-    update_interval: 30s
-
-  - platform: rotary_encoder
-    id: encoder_id
-    name: "Encoder"
-    pin_a: 22
-    pin_b: 23
+#  - platform: esp32_hall
+#    name: "ESP32 Hall Sensor"
+#    id: hall_id
+#    update_interval: 30s
 
 stepper:
   - platform: uln2003
     id: id_stepper_lay
-    pin_a: 13
-    pin_b: 14
-    pin_c: 26
-    pin_d: 27
+    pin_a: 14
+    pin_b: 27
+    pin_c: 13
+    pin_d: 26
     max_speed: 200 steps/s
+    sleep_when_done: true
     step_mode: HALF_STEP
-
-  - platform: a4988
-    id: id_stepper2
-    step_pin: 33
-    dir_pin: 32
-    max_speed: 1000 steps/s
-    sleep_pin: 12
-    acceleration: 400
-    deceleration: 400
+    acceleration: inf
+    deceleration: inf
 
 output:
-  - platform: gpio
+  - platform: ledc
+    id: motor_forward_pin
+    pin: 32
+    frequency: "1000Hz"
+  - platform: ledc
+    id: motor_reverse_pin
+    pin: 33
+    frequency: "1000Hz"
+  - platform: ledc
+    id: motor_enable
     pin: 25
-    id: gpio_dd1
+    frequency: "1000Hz"
 
+fan:
+  - platform: hbridge
+    id: fan_rotator
+    name: "Y0 Намотчик"
+    pin_a: motor_forward_pin
+    pin_b: motor_reverse_pin
+    enable_pin: motor_enable
+    decay_mode: slow # slow decay mode (coasting) or fast decay (braking).
+    speed_count: 100
 
 button:
   - platform: template
-    name: "X1 Намотчик. Инициализация"
-    id: id_layer_home
+    name: "X1 Укладчик. Инициализация"
+    id: btn_layer_home
     on_press:
       - globals.set:
           id: id_layer_timeout
-          value: "60"
+          value: "300"
       - globals.set:
-          id: id_layer_mode
+          id: g_layer_mode
           value: "1"
-      - globals.set:
-          id: id_stepper_offset
-          value: "-10"
       #режим 1 - движение в сторону 0
       - stepper.set_speed:
           id: id_stepper_lay
           speed: 200 steps/s
+      - stepper.report_position:
+          id: id_stepper_lay
+          position: 0
+      - stepper.set_target:
+          id: id_stepper_lay
+          target: -550
       - while:
           condition:
             and:
               - binary_sensor.is_off: id_home
               - lambda: "return id(id_layer_timeout)-- > 0;"
           then:
-            - stepper.set_target:
-                id: id_stepper_lay
-                target: !lambda "return id(id_stepper_lay).current_position + id(id_stepper_offset);"
-            - delay: 100 ms
-      #если нет таймаута
-      - lambda: |-
-          auto call = id(id_layer_position).make_call();
-          call.set_value(id(id_stepper_lay).current_position);
-          call.perform();
+            - delay: 10ms
       - if:
           condition:
             lambda: "return id(id_layer_timeout) > 0;"
           then:
             - globals.set:
                 id: id_layer_timeout
-                value: "20"
+                value: "100"
             - globals.set:
-                id: id_layer_mode
+                id: g_layer_mode
                 value: "2"
-            - globals.set:
-                id: id_stepper_offset
-                value: "1"
+            - stepper.set_speed:
+                id: id_stepper_lay
+                speed: 20 steps/s
+            - stepper.report_position:
+                id: id_stepper_lay
+                position: 0
+            - stepper.set_target:
+                id: id_stepper_lay
+                target: 10
             #режим 2 - съезд с концевика
             - while:
                 condition:
@@ -259,140 +354,114 @@ button:
                     - binary_sensor.is_on: id_home
                     - lambda: "return id(id_layer_timeout)-- > 0;"
                 then:
-                  - stepper.set_target:
-                      id: id_stepper_lay
-                      target: !lambda "return id(id_stepper_lay).current_position + id(id_stepper_offset);"
-                  - while:
-                      condition:
-                        lambda: "return id(id_stepper_lay).current_position != id(id_stepper_lay).target_position;"
-                      then:
-                        - delay: 10ms
-            - lambda: |-
-                auto call = id(id_layer_position).make_call();
-                call.set_value(id(id_stepper_lay).current_position);
-                call.perform();
+                  - delay: 10ms
             - if:
                 condition:
                   lambda: "return id(id_layer_timeout) > 0;"
                 then:
-                  - stepper.report_position:
-                      id: id_stepper_lay
-                      position: 0
-                  - stepper.set_target:
-                      id: id_stepper_lay
-                      target: 0
                   - globals.set:
-                      id: id_layer_mode
+                      id: g_layer_mode
                       value: "10"
                   # переезд на offset
                   - stepper.set_speed:
                       id: id_stepper_lay
                       speed: 200 steps/s
-                  - stepper.set_target:
-                      id: id_stepper_lay
-                      target: !lambda "return id(id_offset).state;"
-                  - while:
-                      condition:
-                        lambda: "return id(id_stepper_lay).current_position != id(id_stepper_lay).target_position;"
-                      then:
-                        - delay: 10ms
                   - stepper.report_position:
                       id: id_stepper_lay
                       position: 0
+                  - number.set:
+                      id: id_layer_position
+                      value: !lambda if(id(sl_begin).active_index() == 0) { return int((id(num_offset).state - id(num_layer_position_offset).state)/id(num_layer_step_size).state);} else {return int((id(num_offset).state + id(num_width).state + id(num_layer_position_offset).state)/id(num_layer_step_size).state);};
                   - stepper.set_target:
                       id: id_stepper_lay
-                      target: 0
-                  - lambda: |-
-                      auto call = id(id_layer_position).make_call();
-                      call.set_value(id(id_stepper_lay).current_position);
-                      call.perform();
+                      target: !lambda return id(id_layer_position).state;
+
                 else:
                   - logger.log: "ERROR. Home switch error!"
-
           else:
             - logger.log: "ERROR. Home switch not found!"
 
   - platform: template
-    name: "X2 Намотчик. START"
-    id: id_layer_start
-    on_press:
-      - if:
-          condition:
-            lambda: 'return id(id_layer_mode) != 10;'
-          then:
-            - logger.log: "ERROR home position!"
-          else:
-            - logger.log: "START!"
-            - script.execute: go_script
-
-  - platform: template
-    name: "X5 Намотчик. На позицию!"
+    name: "X5 Укладчик. На позицию!"
     id: id_layer_go
     on_press:
       - stepper.set_target:
           id: id_stepper_lay
-          target: !lambda "return id(id_layer_position).state;"
+          target: !lambda return id(id_layer_position).state;
+      - delay: 50ms
 
   - platform: template
-    name: "X3 Намотчик. STOP"
+    name: "Y3 Намотчик. Виток +1"
+    id: id_layer_turn_forw
+    on_press:
+      - lambda: id(g_rotator_turn_stop) += 1;
+      - fan.turn_on:
+          id: fan_rotator
+          direction: forward
+          speed: !lambda "return id(n_layer_speed_turn).state;"
+
+  - platform: template
+    name: "Y4 Намотчик. Виток -1"
+    id: id_layer_turn_rev
+    on_press:
+      - lambda: id(g_rotator_turn_stop) -= 1;
+      - fan.turn_on:
+          id: fan_rotator
+          direction: reverse
+          speed: !lambda "return id(n_layer_speed_turn).state;"
+
+  - platform: template
+    name: "Y5 Намотчик. START"
+    id: btn_layer_start
+    on_press:
+      - logger.log: "START!"
+      - globals.set:
+          id: g_layer_mode
+          value: "11"
+      - number.set:
+          id: num_cur_turn
+          value: "0"
+      - globals.set:
+          id: g_coil_counter
+          value: "0"
+      - globals.set:
+          id: g_rotator_turn_stop
+          value: !lambda return id(num_cur_turn).state + id(num_total_turns).state;
+      - stepper.set_speed:
+          id: id_stepper_lay
+          speed: 200 steps/s
+      - fan.turn_on:
+          id: fan_rotator
+          direction: forward
+          speed: !lambda "return id(n_layer_speed_turn).state;"
+
+  - platform: template
+    name: "Y6 Намотчик. Пауза"
+    id: id_layer_pause
+    on_press:
+      - if:
+          condition:
+            lambda: "return id(g_layer_mode) > 10;"
+          then:
+            - fan.turn_off: fan_rotator
+            - globals.set:
+                id: g_layer_mode
+                value: "10"
+          else:
+            - fan.turn_on: fan_rotator
+            - globals.set:
+                id: g_layer_mode
+                value: "11"
+
+  - platform: template
+    name: "Y7 Намотчик. STOP"
     id: id_layer_stop
     on_press:
-      - script.stop: go_script
-
-  - platform: template
-    name: "Y1 Намотчик. Виток +1"
-    id: id_layer_turn1
-    on_press:
-      - stepper.set_speed:
-          id: id_stepper2
-          speed: !lambda "return id(id_layer_speed_turn).state;"
-      - lambda: |-
-          id(id_stepper2).set_target(id(id_stepper2).current_position + 96);
-
-  - platform: template
-    name: "Y2 Намотчик. Виток -1"
-    id: id_layer_turn2
-    on_press:
-      - stepper.set_speed:
-          id: id_stepper2
-          speed: !lambda "return id(id_layer_speed_turn).state;"
-      - lambda: |-
-          id(id_stepper2).set_target(id(id_stepper2).current_position - 96);
-
-script:
-  - id: go_script
-    then:
+      - fan.turn_off: fan_rotator
       - globals.set:
-          id: id_counter
-          value: '0'
-      - number.to_min:
-          id: id_layer_cur_turn          
-      - while:
-          condition:
-            lambda: "return id(id_counter) < id(id_total_turns).state;"
-          then:
-            - lambda: |-
-                //направление
-                if ((id(id_counter) / (int)id(id_one_lay).state) % 2 == 0)
-                {
-                  id(id_stepper_lay).set_target(id(id_stepper_lay).current_position + id(id_step).state);
-                }else
-                {
-                  id(id_stepper_lay).set_target(id(id_stepper_lay).current_position - id(id_step).state);
-                }
-                id(id_counter)++;
-            - while:
-                condition:
-                  lambda: "return id(id_stepper_lay).current_position != id(id_stepper_lay).target_position;"
-                then:
-                  - delay: 100ms
-            - number.increment:
-                id: id_layer_cur_turn
-                cycle: false
-      - lambda: |-
-          auto call = id(id_layer_position).make_call();
-          call.set_value(id(id_stepper_lay).current_position);
-          call.perform();
-
-
-
+          id: g_layer_mode
+          value: "10"
+      - globals.set:
+          id: g_rotator_turn_stop
+          value: !lambda return id(num_cur_turn).state;
+          
