@@ -1,0 +1,202 @@
+esphome:
+  name: c3led
+  platformio_options:
+    board_build.f_cpu: 80000000L
+    board_build.flash_mode: dio
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    #version: recommended
+    #Custom sdkconfig options
+    #sdkconfig_options:
+    #  COMPILER_OPTIMIZATION_SIZE: y
+    # Advanced tweaking options
+    #advanced:
+    #  ignore_efuse_mac_crc: false
+
+wifi:
+  ssid: !secret wifi_ssid_home
+  password: !secret wifi_password_home
+  reboot_timeout: 0s
+  ap:
+    ssid: "c3led"
+    password: !secret ap_password
+    ap_timeout: 0s
+#  power_save_mode: HIGH
+
+#captive_portal:
+
+# Enable logging
+logger:
+  #level: VERBOSE
+  #level: VERY_VERBOSE
+  #level: INFO
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+  #  local: true
+  ota: false
+  version: 2
+  js_include: "www_all_number.js"
+  js_url: ""
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO9
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 50ms
+    name: "Boot button"
+    on_press:
+      then:
+        - script.execute: on_from_1
+    on_release:
+      then:
+        - script.execute: off_from_1
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: false
+
+# Individual sensors
+sensor:
+  - platform: uptime
+    name: Uptime Sensor
+    id: uptime_id
+    update_interval: 1min
+
+  - platform: internal_temperature
+    name: "Internal Temperature"
+
+light:
+  - platform: rgb
+    name: "3 RGB Led"
+    id: rgb_led
+    red: output_r
+    green: output_g
+    blue: output_b
+  - platform: monochromatic
+    output: output_c
+    name: "2 Cool Light"
+    id: cool_led
+  - platform: monochromatic
+    output: output_w
+    name: "1 Warm Light"    
+    id: warm_led
+
+output:
+  - platform: ledc
+    pin: GPIO3
+    id: output_r
+  - platform: ledc
+    pin: GPIO4
+    id: output_g
+  - platform: ledc
+    pin: GPIO5
+    id: output_b
+  - platform: ledc
+    pin: GPIO19
+    id: output_c
+  - platform: ledc
+    pin: GPIO18
+    id: output_w
+
+number:
+  - platform: template
+    name: "S1 Яркость"
+    id: n_brightness
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    unit_of_measurement: "%"
+    restore_value: true
+    initial_value: 100
+
+  - platform: template
+    name: "S2 Задержка между ступенями"
+    id: n_delay
+    optimistic: true
+    min_value: 0
+    max_value: 30
+    step: 0.1
+    unit_of_measurement: "сек."
+    restore_value: true
+    initial_value: 0.5
+
+  - platform: template
+    name: "S3 Макс. время прохода"
+    id: n_timeout
+    optimistic: true
+    min_value: 0
+    max_value: 600
+    step: 1
+    unit_of_measurement: "сек."
+    restore_value: true
+    initial_value: 60
+
+globals:
+  - id: g_action
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+script:
+  - id: on_from_1
+    then:
+      - light.turn_on:
+          id: warm_led
+          brightness: !lambda return id(n_brightness).state / 100;
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: cool_led
+          brightness: !lambda return id(n_brightness).state / 100;
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: rgb_led
+          brightness: !lambda return id(n_brightness).state / 100;
+          red: 100%
+          green: 0%
+          blue: 0%
+      - delay: !lambda return id(n_delay).state * 1000;    
+      - light.turn_on:
+          id: rgb_led
+          brightness: !lambda return id(n_brightness).state / 100;
+          red: 100%
+          green: 100%
+          blue: 0%
+      - delay: !lambda return id(n_delay).state * 1000;          
+      - light.turn_on:
+          id: rgb_led
+          brightness: !lambda return id(n_brightness).state / 100;
+          red: 100%
+          green: 100%
+          blue: 100%
+      - delay: !lambda return id(n_delay).state * 1000;
+
+  - id: off_from_1
+    then:
+      - light.turn_off:
+          id: warm_led
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: cool_led
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: rgb_led
+      - delay: !lambda return id(n_delay).state * 1000;    
+      

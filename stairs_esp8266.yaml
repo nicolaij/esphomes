@@ -279,58 +279,86 @@ script:
       - light.turn_on:
           id: l01
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l02
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l02
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l03
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l03
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l04
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l04
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l05
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l05
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l06
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l06
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l07
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l07
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l08
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l08
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l09
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l09
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l10
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l10
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l11
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l11
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l12
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l12
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l13
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l13
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l14
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l14
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l15
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l15
@@ -387,58 +415,86 @@ script:
       - light.turn_on:
           id: l15
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l14
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l14
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l13
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l13
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l12
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l12
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l11
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l11
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l10
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l10
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l09
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l09
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l08
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l08
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l07
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l07
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l06
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l06
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l05
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l05
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l04
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l04
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l03
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l03
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l02
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l02
           brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l01
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_on:
           id: l01
