@@ -107,7 +107,6 @@ output:
 
   - platform: gpio
     id: led_output
-    #status_led:
     pin:
       number: LED
       inverted: true
@@ -180,6 +179,7 @@ light:
 
   - platform: binary
     name: "Led"
+    id: led
     output: led_output
 
 binary_sensor:
@@ -194,20 +194,20 @@ binary_sensor:
             condition:
               lambda: "return id(g_action) == 0;"
             then:
-              - globals.set:
-                  id: g_action
-                  value: "1"
-              - script.execute: on_from_1
-              - script.wait: on_from_1
+              - script.execute: run_from_1
+    on_release:
+      then:
         - if:
             condition:
               lambda: "return id(g_action) == 2;"
             then:
-              - script.wait: on_from_2
+              - script.stop: run_from_2
               - script.execute: off_from_2
+              - script.wait: off_from_2
               - globals.set:
                   id: g_action
                   value: "0"
+
   - platform: gpio
     pin: D7
     name: "Sensor 2"
@@ -219,17 +219,16 @@ binary_sensor:
             condition:
               lambda: "return id(g_action) == 0;"
             then:
-              - globals.set:
-                  id: g_action
-                  value: "2"
-              - script.execute: on_from_2
-              - script.wait: on_from_2
+              - script.execute: run_from_2
+    on_release:
+      then:
         - if:
             condition:
               lambda: "return id(g_action) == 1;"
             then:
-              - script.wait: on_from_1
+              - script.stop: run_from_1
               - script.execute: off_from_1
+              - script.wait: off_from_1
               - globals.set:
                   id: g_action
                   value: "0"
@@ -242,6 +241,7 @@ number:
     min_value: 0
     max_value: 100
     step: 1
+    unit_of_measurement: "%"
     restore_value: true
     initial_value: 100
 
@@ -252,15 +252,18 @@ number:
     min_value: 0
     max_value: 30
     step: 0.1
+    unit_of_measurement: "сек."
     restore_value: true
-    initial_value: 1
+    initial_value: 0.5
 
   - platform: template
     name: "Макс. время прохода"
+    id: n_timeout
     optimistic: true
     min_value: 0
     max_value: 600
     step: 1
+    unit_of_measurement: "сек."
     restore_value: true
     initial_value: 60
 
@@ -332,6 +335,7 @@ script:
       - light.turn_on:
           id: l15
           brightness: !lambda return id(n_brightness).state / 100;
+      - delay: !lambda return id(n_delay).state * 1000;
   - id: off_from_1
     then:
       - light.turn_off:
@@ -439,6 +443,7 @@ script:
       - light.turn_on:
           id: l01
           brightness: !lambda return id(n_brightness).state / 100;
+      - delay: !lambda return id(n_delay).state * 1000;
   - id: off_from_2
     then:
       - light.turn_off:
@@ -485,3 +490,25 @@ script:
       - delay: !lambda return id(n_delay).state * 1000;
       - light.turn_off:
           id: l01
+  - id: run_from_1
+    then:
+      - script.execute: on_from_1
+      - globals.set:
+          id: g_action
+          value: "1"
+      - delay: !lambda return id(n_timeout).state * 1000;
+      - script.execute: off_from_1
+      - globals.set:
+          id: g_action
+          value: "0"
+  - id: run_from_2
+    then:
+      - script.execute: on_from_2
+      - globals.set:
+          id: g_action
+          value: "2"
+      - delay: !lambda return id(n_timeout).state * 1000;
+      - script.execute: off_from_2
+      - globals.set:
+          id: g_action
+          value: "0"
