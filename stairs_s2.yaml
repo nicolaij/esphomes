@@ -1,0 +1,595 @@
+esphome:
+  name: stairs
+  platformio_options:
+    board_build.f_cpu: 160000000L
+
+esp32:
+  board: lolin_s2_mini
+  framework:
+    type: esp-idf  
+    sdkconfig_options:
+      CONFIG_ESP_CONSOLE_USB_CDC: y
+      
+wifi:
+  ssid: !secret wifi_ssid_home
+  password: !secret wifi_password_home
+  reboot_timeout: 0s
+  ap:
+    ssid: "stairs"
+    password: !secret ap_password
+    ap_timeout: 0s
+  power_save_mode: HIGH
+
+#captive_portal:
+
+# Enable logging
+logger:
+#  level: NONE
+  hardware_uart: USB_CDC
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+
+# Активация web сервера
+web_server:
+  port: 80
+  ota: false
+  version: 2
+  js_include: "www_all_number.js"
+  js_url: ""
+
+# Individual sensors
+sensor:
+  - platform: uptime
+    name: Uptime Sensor
+
+  - platform: internal_temperature
+    name: "Internal Temperature"    
+
+  - platform: wifi_signal
+    id: wifi_s
+    name: "WiFi Signal Sensor"
+
+i2c:
+  frequency: 400kHz
+  scl: 34
+  sda: 21
+
+pca9685:
+  frequency: 1000Hz
+
+output:
+  - platform: pca9685
+    channel: 0
+    id: pwm01
+  - platform: pca9685
+    channel: 1
+    id: pwm02
+  - platform: pca9685
+    channel: 2
+    id: pwm03
+  - platform: pca9685
+    channel: 3
+    id: pwm04
+  - platform: pca9685
+    channel: 4
+    id: pwm05
+  - platform: pca9685
+    channel: 5
+    id: pwm06
+  - platform: pca9685
+    channel: 6
+    id: pwm07
+  - platform: pca9685
+    channel: 7
+    id: pwm08
+  - platform: pca9685
+    channel: 8
+    id: pwm09
+  - platform: pca9685
+    channel: 9
+    id: pwm10
+  - platform: pca9685
+    channel: 10
+    id: pwm11
+  - platform: pca9685
+    channel: 11
+    id: pwm12
+  - platform: pca9685
+    channel: 12
+    id: pwm13
+  - platform: pca9685
+    channel: 13
+    id: pwm14
+  - platform: pca9685
+    channel: 14
+    id: pwm15
+  - platform: pca9685
+    channel: 15
+    id: pwm16
+
+  - platform: gpio
+    id: led_output
+    pin:
+      number: LED
+      inverted: false
+
+light:
+  - platform: monochromatic
+    name: "light 01"
+    id: l01
+    output: pwm01
+  - platform: monochromatic
+    name: "light 02"
+    id: l02
+    output: pwm02
+  - platform: monochromatic
+    name: "light 03"
+    id: l03
+    output: pwm03
+  - platform: monochromatic
+    name: "light 04"
+    id: l04
+    output: pwm04
+  - platform: monochromatic
+    name: "light 05"
+    id: l05
+    output: pwm05
+  - platform: monochromatic
+    name: "light 06"
+    id: l06
+    output: pwm06
+  - platform: monochromatic
+    name: "light 07"
+    id: l07
+    output: pwm07
+  - platform: monochromatic
+    name: "light 08"
+    id: l08
+    output: pwm08
+  - platform: monochromatic
+    name: "light 09"
+    id: l09
+    output: pwm09
+  - platform: monochromatic
+    name: "light 10"
+    id: l10
+    output: pwm10
+  - platform: monochromatic
+    name: "light 11"
+    id: l11
+    output: pwm11
+  - platform: monochromatic
+    name: "light 12"
+    id: l12
+    output: pwm12
+  - platform: monochromatic
+    name: "light 13"
+    id: l13
+    output: pwm13
+  - platform: monochromatic
+    name: "light 14"
+    id: l14
+    output: pwm14
+  - platform: monochromatic
+    name: "light 15"
+    id: l15
+    output: pwm15
+  - platform: monochromatic
+    name: "light 16"
+    id: l16
+    output: pwm16
+
+  - platform: binary
+    name: "Led"
+    id: led
+    output: led_output
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: 2
+      mode:
+        input: true
+        pullup: true
+    name: "Sensor 1"
+    id: moving1
+    device_class: MOTION
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: "return id(g_action) == 0;"
+            then:
+              - script.execute: run_from_1
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: "return id(g_action) == 2;"
+            then:
+              - script.stop: run_from_2
+              - script.execute: off_from_2
+              - script.wait: off_from_2
+              - globals.set:
+                  id: g_action
+                  value: "0"
+
+  - platform: gpio
+    pin:
+      number: 5
+      mode:
+        input: true
+        pullup: true
+    name: "Sensor 2"
+    id: moving2
+    device_class: MOTION
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: "return id(g_action) == 0;"
+            then:
+              - script.execute: run_from_2
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: "return id(g_action) == 1;"
+            then:
+              - script.stop: run_from_1
+              - script.execute: off_from_1
+              - script.wait: off_from_1
+              - globals.set:
+                  id: g_action
+                  value: "0"
+
+  - platform: gpio
+    pin:
+      number: 0
+      inverted: true
+      mode:
+        input: true
+        pullup: true      
+    filters:
+      - delayed_on: 50ms
+    name: "Boot button"
+
+number:
+  - platform: template
+    name: "S1 Яркость"
+    id: n_brightness
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    step: 1
+    unit_of_measurement: "%"
+    restore_value: true
+    initial_value: 100
+
+  - platform: template
+    name: "S2 Задержка между ступенями"
+    id: n_delay
+    optimistic: true
+    min_value: 0
+    max_value: 30
+    step: 0.1
+    unit_of_measurement: "сек."
+    restore_value: true
+    initial_value: 0.5
+
+  - platform: template
+    name: "S3 Макс. время прохода"
+    id: n_timeout
+    optimistic: true
+    min_value: 0
+    max_value: 600
+    step: 1
+    unit_of_measurement: "сек."
+    restore_value: true
+    initial_value: 60
+
+globals:
+  - id: g_action
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+script:
+  - id: on_from_1
+    then:
+      - light.turn_on:
+          id: l01
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l02
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l02
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l03
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l03
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l04
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l04
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l05
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l05
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l06
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l06
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l07
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l07
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l08
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l08
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l09
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l09
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l10
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l10
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l11
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l11
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l12
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l12
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l13
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l13
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l14
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l14
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l15
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l15
+          brightness: !lambda return id(n_brightness).state / 100;
+      - delay: !lambda return id(n_delay).state * 1000;
+  - id: off_from_1
+    then:
+      - light.turn_off:
+          id: l01
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l02
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l03
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l04
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l05
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l06
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l07
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l08
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l09
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l10
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l11
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l12
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l13
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l14
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l15
+  - id: on_from_2
+    then:
+      - light.turn_on:
+          id: l15
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l14
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l14
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l13
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l13
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l12
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l12
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l11
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l11
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l10
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l10
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l09
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l09
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l08
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l08
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l07
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l07
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l06
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l06
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l05
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l05
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l04
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l04
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l03
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l03
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l02
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l02
+          brightness: !lambda return id(n_brightness).state / 100;
+      - light.turn_off:
+          id: l01
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_on:
+          id: l01
+          brightness: !lambda return id(n_brightness).state / 100;
+      - delay: !lambda return id(n_delay).state * 1000;
+  - id: off_from_2
+    then:
+      - light.turn_off:
+          id: l15
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l14
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l13
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l12
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l11
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l10
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l09
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l08
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l07
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l06
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l05
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l04
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l03
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l02
+      - delay: !lambda return id(n_delay).state * 1000;
+      - light.turn_off:
+          id: l01
+  - id: run_from_1
+    then:
+      - script.execute: on_from_1
+      - globals.set:
+          id: g_action
+          value: "1"
+      - delay: !lambda return id(n_timeout).state * 1000;
+      - script.execute: off_from_1
+      - globals.set:
+          id: g_action
+          value: "0"
+  - id: run_from_2
+    then:
+      - script.execute: on_from_2
+      - globals.set:
+          id: g_action
+          value: "2"
+      - delay: !lambda return id(n_timeout).state * 1000;
+      - script.execute: off_from_2
+      - globals.set:
+          id: g_action
+          value: "0"
