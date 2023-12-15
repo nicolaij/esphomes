@@ -510,15 +510,5 @@ switch:
       - lambda: id(g_rotator_turn_stop) = int(id(num_cur_turn).state) - 1;
       - fan.turn_on:
           id: fan_rotator
-          direction: forward
-          speed: !lambda return id(n_layer_speed_turn).state / 3;
-      - delay: 100ms
-      - fan.turn_on:
-          id: fan_rotator
-          direction: forward
-          speed: !lambda return id(n_layer_speed_turn).state / 3 * 2;
-      - delay: 100ms
-      - fan.turn_on:
-          id: fan_rotator
           direction: reverse
           speed: !lambda return id(n_layer_speed_turn).state;
