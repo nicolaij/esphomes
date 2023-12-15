@@ -1,10 +1,12 @@
 esphome:
   name: namotka
-#  platformio_options:
-#    board_build.f_cpu: 80000000L
+  platformio_options:
+    board_build.f_cpu: 160000000L
 
 esp32:
   board: esp32dev
+  framework:
+    type: esp-idf
 
 wifi:
   ssid: !secret wifi_ssid_home
@@ -69,7 +71,7 @@ binary_sensor:
     id: id_turns
     pin:
       number: 16
-      inverted: true
+      inverted: false
       mode:
         input: true
         pullup: false
@@ -88,40 +90,39 @@ binary_sensor:
                 call.perform();
               }
 
+                //auto call = id(num_step_cur_turn).make_call();
+                //call.number_decrement(true);
+                //call.perform();
+
+              if (id(g_layer_mode) == 11) //мотаем влево
+              {
+                id(g_coil_counter)++;
+                int pos = id(g_layer_position) - (id(g_coil_counter) * id(num_d).state) / id(num_layer_step_size).state;
+
+                id(id_stepper_lay).set_target(pos);
+
+                auto callp = id(id_layer_position).make_call();
+                callp.set_value(id(id_stepper_lay).target_position);
+                callp.perform();
+              }
+              if (id(g_layer_mode) == 12) //мотаем вправо
+              {
+                id(g_coil_counter)++;
+                int pos = id(g_layer_position) + (id(g_coil_counter) * id(num_d).state) / id(num_layer_step_size).state;
+
+                id(id_stepper_lay).set_target(pos);
+
+                auto callp = id(id_layer_position).make_call();
+                callp.set_value(id(id_stepper_lay).target_position);
+                callp.perform();
+              }
+
               if (id(g_rotator_turn_stop) == id(num_cur_turn).state)
               {
                 // Turn the fan off
                 id(g_layer_mode) = 10;
                 auto call = id(fan_rotator).turn_off();
                 call.perform();
-              } else
-              {
-                auto call = id(num_step_cur_turn).make_call();
-                call.number_decrement(true);
-                call.perform();
-
-                if (id(g_layer_mode) == 11) //мотаем влево
-                {
-                  id(g_coil_counter)++;
-                  int pos = id(g_layer_position) - (id(g_coil_counter) * id(num_d).state) / id(num_layer_step_size).state;
-
-                  id(id_stepper_lay).set_target(pos);
-
-                  auto callp = id(id_layer_position).make_call();
-                  callp.set_value(id(id_stepper_lay).target_position);
-                  callp.perform();
-                }
-                if (id(g_layer_mode) == 12) //мотаем вправо
-                {
-                  id(g_coil_counter)++;
-                  int pos = id(g_layer_position) + (id(g_coil_counter) * id(num_d).state) / id(num_layer_step_size).state;
-
-                  id(id_stepper_lay).set_target(pos);
-
-                  auto callp = id(id_layer_position).make_call();
-                  callp.set_value(id(id_stepper_lay).target_position);
-                  callp.perform();
-                }
               }
             }
 
@@ -422,6 +423,7 @@ switch:
     name: "Y4 Намотчик. Слой Лево/Право"
     assumed_state: true
     optimistic: true
+    restore_mode: DISABLED
     turn_off_action:
       - globals.set:
           id: g_layer_mode
@@ -464,9 +466,10 @@ switch:
           speed: !lambda return id(n_layer_speed_turn).state;
 
   - platform: template
-    name: "Y5 Намотчик. Виток -+1"
+    name: "Y5 Намотчик. Виток -1/+1"
     assumed_state: true
     optimistic: true
+    restore_mode: DISABLED
     turn_on_action:
       - lambda: id(g_rotator_turn_stop) = int(id(num_cur_turn).state) + 1;
       - fan.turn_on:
