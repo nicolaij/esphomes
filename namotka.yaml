@@ -181,7 +181,7 @@ number:
     optimistic: true
     restore_value: true
     min_value: 0
-    max_value: 1
+    max_value: 5
     step: 0.001
     unit_of_measurement: "мм."
   - platform: template
@@ -193,14 +193,6 @@ number:
     max_value: 100
     step: 0.01
     unit_of_measurement: "мм."
-  - platform: template
-    name: "V4 Катушка. Витков всего:"
-    id: num_total_turns
-    optimistic: true
-    restore_value: true
-    min_value: 1
-    max_value: 10000
-    step: 1
   - platform: template
     name: "X2 Укладчик. Шаг:"
     id: num_layer_step_size
@@ -216,9 +208,9 @@ number:
     id: num_layer_position_offset
     optimistic: true
     restore_value: true
-    min_value: 0
-    max_value: 10
-    initial_value: 1
+    min_value: -50
+    max_value: 50
+    initial_value: 0
     step: 0.01
     unit_of_measurement: "мм."
   - platform: template
@@ -241,7 +233,7 @@ number:
     initial_value: 0
     step: 1
   - platform: template
-    name: "Y3 Намотчик. Витки слой:"
+    name: "Y3 Намотчик. Витки на слой:"
     id: num_step_cur_turn
     optimistic: true
     restore_value: false
