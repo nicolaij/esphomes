@@ -13,8 +13,7 @@ namespace esphome
 
     using st7565r_writer_t = std::function<void(ST7565r &)>;
 
-    class ST7565r : public PollingComponent,
-                   public display::DisplayBuffer,
+    class ST7565r : public display::DisplayBuffer,
                    public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                                                spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_4MHZ>
     {
