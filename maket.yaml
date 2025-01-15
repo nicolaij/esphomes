@@ -1,0 +1,142 @@
+#esphome  Version: 2024.12.2
+substitutions:
+  name: maket
+  board: nodemcu-32s
+
+esphome:
+  name: ${name}
+#  platformio_options:
+#    board_build.f_cpu: 80000000L
+
+esp32:
+  board: ${board}
+
+# Enable logging
+logger:
+
+wifi:
+  networks:
+    - ssid: "Nadtocheeva 5"
+      password: "123123123"
+  
+  ap:
+    ssid: ${name}
+    password: "123123123"
+
+web_server:
+  port: 80
+  ota: false
+  version: 3
+  local: true
+
+#captive_portal:
+
+api:
+
+ota:
+  - platform: esphome
+    password: ""
+
+status_led:
+  pin: GPIO2
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    update_interval: 60s  
+
+  - platform: uptime
+    name: Uptime Sensor
+
+  - platform: esp32_hall
+    name: "ESP32 Hall Sensor"
+    update_interval: 30s
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: LED_strip
+    rgb_order: GRB
+    chipset: WS2812
+    pin: GPIO4
+    num_leds: 60
+    rmt_channel: 0
+    name: "Strip Light"
+    internal: true
+  - platform: partition
+    name: "Partition Light 1"
+    id: section1
+    segments:
+      # Use first 10 LEDs from the light with ID light1
+      - id: LED_strip
+        from: 0
+        to: 9
+  - platform: partition
+    name: "Partition Light 2"
+    id: section2
+    segments:
+      # Use LEDs 11-20 from the light with ID light1
+      - id: LED_strip
+        from: 10
+        to: 19
+  - platform: partition
+    name: "Partition Light 3"
+    id: section3
+    segments:
+      - id: LED_strip
+        from: 20
+        to: 59
+
+button:
+  - platform: template
+    name: test1
+    id: my_button1
+    on_press:
+      - script.execute: color_reddish
+      - delay: !lambda "return 500;"
+      - script.execute: color_blueish       
+
+binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO0
+      inverted: true
+    name: "Boot button"
+    on_click: 
+      then:
+        - light.turn_on:
+            id: section1
+            brightness: 30%
+            red: 60%
+            green: 10%
+            blue: 10%
+        - light.turn_on:
+            id: section2
+            brightness: 30%
+            red: 10%
+            green: 60%
+            blue: 10%
+        - light.turn_on:
+            id: section3
+            brightness: 30%
+            red: 10%
+            green: 10%
+            blue: 60%
+
+script:
+  - id: color_reddish
+    then:
+    - light.turn_on:
+        id: section1
+        brightness: 30%
+        red: 60%
+        green: 10%
+        blue: 10%
+
+  - id: color_blueish
+    then:
+    - light.turn_on:
+        id: section1
+        brightness: 30%
+        red: 10%
+        green: 10%
+        blue: 50%
