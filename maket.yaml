@@ -7,7 +7,10 @@ esphome:
   name: ${name}
 #  platformio_options:
 #    board_build.f_cpu: 80000000L
-
+  on_boot:
+    then:
+      - light.turn_off:
+          id: LED_strip
 esp32:
   board: ${board}
 
@@ -18,10 +21,11 @@ wifi:
   networks:
     - ssid: "Nadtocheeva 5"
       password: "123123123"
-  
+  reboot_timeout: 0s
   ap:
     ssid: ${name}
     password: "123123123"
+    ap_timeout: 10s
 
 web_server:
   port: 80
@@ -32,6 +36,7 @@ web_server:
 #captive_portal:
 
 api:
+  reboot_timeout: 0s
 
 ota:
   - platform: esphome
@@ -39,6 +44,12 @@ ota:
 
 status_led:
   pin: GPIO2
+
+globals:
+  - id: stage_data
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 sensor:
   - platform: wifi_signal
@@ -64,27 +75,102 @@ light:
     internal: true
   - platform: partition
     name: "Partition Light 1"
-    id: section1
+    id: section1_led
     segments:
       # Use first 10 LEDs from the light with ID light1
       - id: LED_strip
         from: 0
-        to: 9
+        to: 11
+    effects:
+      - addressable_lambda:
+          name: "Red down"
+          update_interval: 100ms
+          lambda: |-
+            // it.size() - Number of LEDs
+            // it[num] - Access the LED at index num.
+            // Set the LED at num to the given r, g, b values
+            // it[num] = Color(r, g, b);
+            // Get the color at index num (Color instance)
+            // it[num].get();
+            static uint16_t progress = 0;
+            if (initial_run) {
+              progress = 0;
+              it.all() = Color::BLACK;
+              // optionally do a return so nothing happens until the next update_interval
+              return;
+            }
+            if (progress == it.size())
+              return;
+            it[progress++] = Color(255,0,0); //RED
+
+
   - platform: partition
     name: "Partition Light 2"
-    id: section2
+    id: section2_led
     segments:
       # Use LEDs 11-20 from the light with ID light1
       - id: LED_strip
-        from: 10
-        to: 19
+        from: 12
+        to: 23
+    effects:
+      - addressable_lambda:
+          name: "Red down"
+          update_interval: 100ms
+          lambda: |-
+            // it.size() - Number of LEDs
+            // it[num] - Access the LED at index num.
+            // Set the LED at num to the given r, g, b values
+            // it[num] = Color(r, g, b);
+            // Get the color at index num (Color instance)
+            // it[num].get();
+            static uint16_t progress = 0;
+            if (initial_run) {
+              progress = 0;
+              it.all() = Color::BLACK;
+              // optionally do a return so nothing happens until the next update_interval
+              return;
+            }
+            if (progress == it.size())
+              return;
+            it[progress++] = Color(255,0,0); //RED        
   - platform: partition
     name: "Partition Light 3"
-    id: section3
+    id: section3_led
     segments:
       - id: LED_strip
-        from: 20
+        from: 24
         to: 59
+    effects:
+      - addressable_rainbow:
+      - addressable_color_wipe:
+      - addressable_scan:
+          name: Scan Effect With Custom Values
+          move_interval: 20ms
+          scan_width: 10
+      - addressable_lambda:
+          name: "Red"
+          update_interval: 100ms
+          lambda: |-
+            // it.size() - Number of LEDs
+            // it[num] - Access the LED at index num.
+            // Set the LED at num to the given r, g, b values
+            // it[num] = Color(r, g, b);
+            // Get the color at index num (Color instance)
+            // it[num].get();
+            static uint16_t progress = 0;
+            if (initial_run) {
+              progress = 0;
+              it.all() = Color::BLACK;
+              // optionally do a return so nothing happens until the next update_interval
+              return;
+            }
+            if (progress == it.size() / 2)
+            {
+              it.all() = Color(255,0,0); //RED
+              return;
+            }
+            it[it.size() / 2 + progress++] = Color(255,0,0); //RED
+            it[it.size() / 2 - progress] = Color(255,0,0); //RED
 
 button:
   - platform: template
@@ -101,32 +187,83 @@ binary_sensor:
       number: GPIO0
       inverted: true
     name: "Boot button"
-    on_click: 
+    on_click:
       then:
-        - light.turn_on:
-            id: section1
-            brightness: 30%
-            red: 60%
-            green: 10%
-            blue: 10%
-        - light.turn_on:
-            id: section2
-            brightness: 30%
-            red: 10%
-            green: 60%
-            blue: 10%
-        - light.turn_on:
-            id: section3
-            brightness: 30%
-            red: 10%
-            green: 10%
-            blue: 60%
+        - if:
+            condition:
+              lambda: 'return id(stage_data) == 0;'
+            then:
+              - switch.turn_on: enter1
+              - globals.set:
+                  id: stage_data
+                  value: '1'
+            else:                  
+              - if:
+                  condition:
+                    lambda: 'return id(stage_data) == 1;'
+                  then:
+                    - switch.turn_on: enter2
+                    - globals.set:
+                        id: stage_data
+                        value: '2'
+                  else:                  
+                    - if:
+                        condition:
+                          lambda: 'return id(stage_data) == 2;'
+                        then:
+                          - switch.turn_on: enter3
+                          - globals.set:
+                              id: stage_data
+                              value: '3'
+                        else:
+                          - switch.turn_off: enter1
+                          - switch.turn_off: enter2
+                          - switch.turn_off: enter3
+                          - globals.set:
+                              id: stage_data
+                              value: '0'
 
+switch:
+  - platform: template
+    name: "1"
+    id: enter1
+    optimistic: true
+    on_turn_off:
+      - light.turn_off:
+          id: section1_led
+    on_turn_on:
+      - light.turn_on:
+          id: section1_led
+          effect: "Red down"          
+
+  - platform: template
+    name: "2"
+    id: enter2
+    optimistic: true
+    on_turn_off:
+      - light.turn_off:
+          id: section2_led
+    on_turn_on:
+      - light.turn_on:
+          id: section2_led
+          effect: "Red down"          
+
+  - platform: template
+    name: "3"
+    id: enter3
+    optimistic: true
+    on_turn_off:
+      - light.turn_off:
+          id: section3_led
+    on_turn_on:
+      - light.turn_on:
+          id: section3_led
+          effect: "Red"   
 script:
   - id: color_reddish
     then:
     - light.turn_on:
-        id: section1
+        id: section1_led
         brightness: 30%
         red: 60%
         green: 10%
@@ -135,7 +272,7 @@ script:
   - id: color_blueish
     then:
     - light.turn_on:
-        id: section1
+        id: section1_led
         brightness: 30%
         red: 10%
         green: 10%
