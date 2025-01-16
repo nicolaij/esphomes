@@ -18,9 +18,6 @@ esp32:
 logger:
 
 wifi:
-  networks:
-    - ssid: "Nadtocheeva 5"
-      password: "123123123"
   reboot_timeout: 0s
   ap:
     ssid: ${name}
