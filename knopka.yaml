@@ -1,0 +1,217 @@
+#esphome  Version: 2024.12.2
+substitutions:
+  name: knopka
+
+esphome:
+  name: ${name}
+  platformio_options:
+    board_build.f_cpu: 80000000L
+
+esp32:
+  board: mhetesp32minikit
+
+# Enable logging
+logger:
+
+wifi:
+  ssid: !secret wifi_ssid_my_home1
+  password: !secret wifi_password_my_home1
+  reboot_timeout: 0s
+  ap:
+    ssid: ${name}
+    password: "123123123"
+    ap_timeout: 10s
+
+web_server:
+  port: 80
+  ota: false
+  version: 3
+  local: true
+
+#captive_portal:
+
+ota:
+  - platform: esphome
+    password: ""
+
+status_led:
+  pin:
+    number: LED
+    inverted: False
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+
+  - platform: uptime
+    name: Uptime Sensor
+
+light:
+  - platform: rgb
+    #id: btnlight
+    name: "Подсветка кнопки"
+    red: routput
+    green: goutput
+    blue: boutput
+    internal: true
+
+  - platform: esp32_rmt_led_strip
+    id: btnlight
+    rgb_order: GRB
+    pin: GPIO13
+    num_leds: 3
+    rmt_channel: 0
+    chipset: ws2812
+    name: "Light"
+    internal: true
+    effects:
+      - flicker:    
+      - pulse:
+          name: "Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+          min_brightness: 0%
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 0s
+          update_interval: 0.1s
+          min_brightness: 0%  
+
+  - platform: rgb
+    id: btnlighton
+    red: routput
+    green: goutput
+    blue: boutput    
+    name: "MODE: Key press"
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_state:
+      - light.control:
+          id: btnlight
+          state: !lambda "return id(btnlighton).remote_values.get_state();"
+          brightness: !lambda "return id(btnlighton).remote_values.get_brightness();"
+          red: !lambda "return id(btnlighton).remote_values.get_red();"
+          green: !lambda "return id(btnlighton).remote_values.get_green();"
+          blue: !lambda "return id(btnlighton).remote_values.get_blue();"
+          effect: !lambda "return id(btnlighton).get_effect_name();"
+
+    effects:
+      - flicker:    
+      - pulse:
+          name: "Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+          min_brightness: 0%
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 0s
+          update_interval: 0.1s
+          min_brightness: 0%  
+
+  - platform: rgb
+    id: btnlightoff
+    red: routput
+    green: goutput
+    blue: boutput    
+    name: "MODE: Key not press"
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_state:
+      - light.control:
+          id: btnlight
+          state: !lambda "return id(btnlightoff).remote_values.get_state();"
+          brightness: !lambda "return id(btnlightoff).remote_values.get_brightness();"
+          red: !lambda "return id(btnlightoff).remote_values.get_red();"
+          green: !lambda "return id(btnlightoff).remote_values.get_green();"
+          blue: !lambda "return id(btnlightoff).remote_values.get_blue();"
+          effect: !lambda "return id(btnlightoff).get_effect_name();"
+
+    effects:
+      - flicker:    
+      - pulse:
+          name: "Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+          min_brightness: 0%
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 0s
+          update_interval: 0.1s
+          min_brightness: 0%  
+
+# Example output entry
+output:
+  - platform: ledc
+    id: routput
+    max_power: 100%
+    pin: GPIO27
+  - platform: ledc
+    id: goutput
+    max_power: 100%
+    pin: GPIO25    
+  - platform: ledc
+    id: boutput
+    max_power: 100%
+    pin: GPIO32
+  - platform: template
+    id: output1    
+    type: float    
+    write_action:
+       - delay: 100ms
+  - platform: template
+    id: output2
+    type: float      
+    write_action:
+       - delay: 100ms  
+  - platform: template
+    id: output3
+    type: float
+    write_action:
+       - delay: 100ms
+
+binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true      
+    name: "Boot button"
+    on_press:
+      then:
+        - switch.turn_on: btnt
+    on_multi_click:
+    - timing:
+        - ON for at least 5s
+      then:
+        - light.control:
+            id: btnlight
+            state: !lambda "return id(btnlighton).remote_values.get_state();"
+            brightness: !lambda "return id(btnlighton).remote_values.get_brightness() / 2;"
+    - timing:
+        - ON for at least 7s
+      then:
+        - light.control:
+            id: btnlight
+            state: !lambda "return id(btnlighton).remote_values.get_state();"
+            brightness: !lambda "return id(btnlighton).remote_values.get_brightness();"            
+    - timing:
+        - ON for 5s to 7s
+        - OFF for at least 0.5s        
+      then:
+        - switch.turn_off: btnt
+
+switch:
+  - platform: template
+    name: "Button press test"
+    id: btnt
+    optimistic: true
+    on_turn_off:
+#      - light.turn_off:
+#          id: btnlighton
+      - light.turn_on:
+          id: btnlightoff
+    on_turn_on:
+#      - light.turn_off:
+#          id: btnlightoff
+      - light.turn_on:
+          id: btnlighton
