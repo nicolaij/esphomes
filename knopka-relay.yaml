@@ -4,8 +4,6 @@ substitutions:
 
 esphome:
   name: ${name}
-#  platformio_options:
-#    board_build.f_cpu: 80000000L
   includes:
     - esphome-esp-now-main/lib/MeshRC.h
   libraries:
@@ -23,9 +21,13 @@ esphome:
             if (*data == '1')
               id(rc).turn_on();
           });
+      - light.turn_on:
+          id: led
+          effect: "Pulse"
 
 esp8266:
   board: esp01_1m
+#  restore_from_flash: true
 
 # Enable logging
 logger:
@@ -54,10 +56,10 @@ ota:
   - platform: esphome
     password: ""
 
-status_led:
-  pin:
-    number: GPIO2
-    inverted: true
+#status_led:
+#  pin:
+#    number: GPIO2
+#    inverted: true
 
 sensor:
   - platform: wifi_signal
@@ -84,9 +86,36 @@ output:
     pin:
       number: GPIO0
       inverted: true
+  - platform: esp8266_pwm
+    id: pwm_led
+    pin:
+      number: GPIO2
+      inverted: false
+    frequency: 1000 Hz
+    inverted: true
 
 light:
-  - platform: binary
-    output: relayout
-    id: light_1
+  - platform: monochromatic
+    output: pwm_led
+    name: "Led"
+    id: led
+    default_transition_length: 0.1s
+    effects:
+      - automation:
+          name: "Pulse"
+          sequence:
+            - light.turn_on:
+                id: led
+                brightness: 50%
+            - delay: 0.1s
+            - light.turn_on:
+                id: led
+                brightness: 0%
+            - if:
+                condition:
+                  switch.is_on: rc
+                then:
+                  - delay: 1s
+                else:
+                  - delay: 5s
 
