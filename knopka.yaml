@@ -62,41 +62,22 @@ sensor:
     name: Uptime Sensor
 
 light:
-  - platform: rgb
-    #id: btnlight
-    name: "Подсветка кнопки"
-    red: routput
-    green: goutput
-    blue: boutput
-    internal: true
-
   - platform: esp32_rmt_led_strip
     id: btnlight
     rgb_order: GRB
-    pin: GPIO13
-    num_leds: 3
+    pin: GPIO4
+    num_leds: 89
     rmt_channel: 0
     chipset: ws2812
     name: "Light"
     internal: true
-    effects:
-      - flicker:    
-      - pulse:
-          name: "Pulse"
-          transition_length: 0.5s
-          update_interval: 0.5s
-          min_brightness: 0%
-      - pulse:
-          name: "Fast Pulse"
-          transition_length: 0s
-          update_interval: 0.1s
-          min_brightness: 0%  
+    effects: !include knopkaeffects.yaml
 
   - platform: rgb
     id: btnlighton
-    red: routput
-    green: goutput
-    blue: boutput    
+    red: output1
+    green: output2
+    blue: output3    
     name: "MODE: Key press"
     restore_mode: RESTORE_DEFAULT_OFF
     on_state:
@@ -108,25 +89,13 @@ light:
           green: !lambda "return id(btnlighton).remote_values.get_green();"
           blue: !lambda "return id(btnlighton).remote_values.get_blue();"
           effect: !lambda "return id(btnlighton).get_effect_name();"
-
-    effects:
-      - flicker:    
-      - pulse:
-          name: "Pulse"
-          transition_length: 0.5s
-          update_interval: 0.5s
-          min_brightness: 0%
-      - pulse:
-          name: "Fast Pulse"
-          transition_length: 0s
-          update_interval: 0.1s
-          min_brightness: 0%  
+    effects: !include knopkaeffects.yaml
 
   - platform: rgb
     id: btnlightoff
-    red: routput
-    green: goutput
-    blue: boutput    
+    red: output1
+    green: output2
+    blue: output3    
     name: "MODE: Key not press"
     restore_mode: RESTORE_DEFAULT_OFF
     on_state:
@@ -138,59 +107,267 @@ light:
           green: !lambda "return id(btnlightoff).remote_values.get_green();"
           blue: !lambda "return id(btnlightoff).remote_values.get_blue();"
           effect: !lambda "return id(btnlightoff).get_effect_name();"
+    effects: !include knopkaeffects.yaml
 
-    effects:
-      - flicker:
-      - pulse:
-          name: "Pulse"
-          transition_length: 0.5s
-          update_interval: 0.5s
-          min_brightness: 0%
-      - pulse:
-          name: "Fast Pulse"
-          transition_length: 0s
-          update_interval: 0.1s
-          min_brightness: 0%  
+  - platform: partition
+    name: "Round 1"
+    id: round1
+    segments:
+      - id: btnlight
+        from: 0
+        to: 3
+      - id: btnlight
+        from: 9
+        to: 10
+      - id: btnlight
+        from: 18
+        to: 18
+      - id: btnlight
+        from: 28
+        to: 28
+      - id: btnlight
+        from: 38
+        to: 39
+      - id: btnlight
+        from: 49
+        to: 50
+      - id: btnlight
+        from: 60
+        to: 60
+      - id: btnlight
+        from: 70
+        to: 70
+      - id: btnlight
+        from: 78
+        to: 79
+      - id: btnlight
+        from: 85
+        to: 88
 
-# Example output entry
+  - platform: partition
+    name: "Round 2"
+    id: round2
+    segments:
+      - id: btnlight
+        from: 5
+        to: 7
+      - id: btnlight
+        from: 11
+        to: 11
+      - id: btnlight
+        from: 17
+        to: 17
+      - id: btnlight
+        from: 29
+        to: 29
+      - id: btnlight
+        from: 37
+        to: 37
+      - id: btnlight
+        from: 40
+        to: 40
+      - id: btnlight
+        from: 48
+        to: 48
+      - id: btnlight
+        from: 51
+        to: 51
+      - id: btnlight
+        from: 59
+        to: 59
+      - id: btnlight
+        from: 71
+        to: 71
+      - id: btnlight
+        from: 77
+        to: 77
+      - id: btnlight
+        from: 81
+        to: 83
+
+  - platform: partition
+    name: "Round 3"
+    id: round3
+    segments:
+      - id: btnlight
+        from: 13
+        to: 15
+      - id: btnlight
+        from: 21
+        to: 21
+      - id: btnlight
+        from: 25
+        to: 25
+      - id: btnlight
+        from: 30
+        to: 30
+      - id: btnlight
+        from: 36
+        to: 36
+      - id: btnlight
+        from: 41
+        to: 41
+      - id: btnlight
+        from: 47
+        to: 47
+      - id: btnlight
+        from: 52
+        to: 52
+      - id: btnlight
+        from: 58
+        to: 58
+      - id: btnlight
+        from: 63
+        to: 63
+      - id: btnlight
+        from: 67
+        to: 67
+      - id: btnlight
+        from: 73
+        to: 75
+
+  - platform: partition
+    name: "Round 4"
+    id: round4
+    segments:
+      - id: btnlight
+        from: 23
+        to: 24
+      - id: btnlight
+        from: 31
+        to: 31
+      - id: btnlight
+        from: 42
+        to: 42
+      - id: btnlight
+        from: 46
+        to: 46
+      - id: btnlight
+        from: 57
+        to: 57
+      - id: btnlight
+        from: 64
+        to: 65
+
+  - platform: partition
+    name: "Round 5"
+    id: round5
+    segments:
+      - id: btnlight
+        from: 33
+        to: 33
+      - id: btnlight
+        from: 43
+        to: 43
+      - id: btnlight
+        from: 45
+        to: 45
+      - id: btnlight
+        from: 55
+        to: 55
+
+  - platform: partition
+    name: "Digit 2"
+    id: digit2
+    segments:
+      - id: btnlight
+        from: 19
+        to: 20
+      - id: btnlight
+        from: 25
+        to: 26
+      - id: btnlight
+        from: 29
+        to: 29
+      - id: btnlight
+        from: 31
+        to: 31
+      - id: btnlight
+        from: 37
+        to: 37
+      - id: btnlight
+        from: 40
+        to: 40
+      - id: btnlight
+        from: 43
+        to: 43
+      - id: btnlight
+        from: 48
+        to: 48
+      - id: btnlight
+        from: 51
+        to: 51
+      - id: btnlight
+        from: 55
+        to: 55
+      - id: btnlight
+        from: 59
+        to: 59
+      - id: btnlight
+        from: 61
+        to: 61
+      - id: btnlight
+        from: 66
+        to: 68
+
+
 output:
-  - platform: ledc
-    id: routput
-    max_power: 100%
-    pin: GPIO27
-  - platform: ledc
-    id: goutput
-    max_power: 100%
-    pin: GPIO25    
-  - platform: ledc
-    id: boutput
-    max_power: 100%
-    pin: GPIO32
   - platform: template
-    id: output1    
+    id: output1
     type: float    
     write_action:
-       - delay: 100ms
+       - delay: 0ms
   - platform: template
     id: output2
     type: float      
     write_action:
-       - delay: 100ms  
+       - delay: 0ms  
   - platform: template
     id: output3
     type: float
     write_action:
-       - delay: 100ms
+       - delay: 0ms
 
 
 binary_sensor:
+  - platform: gpio
+    pin: 
+      number: GPIO17
+      inverted: false
+      mode:
+        input: true
+        pullup: true
+    name: "Key"
+    on_press:
+      then:
+        - switch.turn_on: btnt
+    on_multi_click:
+    - timing:
+        - ON for at least 5s
+      then:
+        - light.control:
+            id: btnlight
+            state: !lambda "return id(btnlighton).remote_values.get_state();"
+            brightness: !lambda "return id(btnlighton).remote_values.get_brightness() / 2;"
+    - timing:
+        - ON for at least 7s
+      then:
+        - light.control:
+            id: btnlight
+            state: !lambda "return id(btnlighton).remote_values.get_state();"
+            brightness: !lambda "return id(btnlighton).remote_values.get_brightness();"            
+    - timing:
+        - ON for 5s to 7s
+        - OFF for at least 0.5s        
+      then:
+        - switch.turn_off: btnt
   - platform: gpio
     pin: 
       number: GPIO0
       inverted: true
       mode:
         input: true
-        pullup: true      
+        pullup: true
     name: "Boot button"
     on_press:
       then:

@@ -1,0 +1,13 @@
+#esphome  Version: 2024.12.2
+- flicker:
+- pulse:
+    name: "Pulse"
+    transition_length: 0.5s
+    update_interval: 0.5s
+    min_brightness: 0%
+- pulse:
+    name: "Fast Pulse"
+    transition_length: 0s
+    update_interval: 0.1s
+    min_brightness: 0%
+
