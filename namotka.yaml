@@ -1,7 +1,33 @@
+#esphome  Version: 2024.12.2
+
 esphome:
   name: namotka
-  platformio_options:
-    board_build.f_cpu: 160000000L
+#  platformio_options:
+#    board_build.f_cpu: 160000000L
+  on_boot:
+  - priority: -100.0
+    then:
+      - lambda: !lambda |-
+          /*
+Порядок работы.
+1. Выставить настройки катушки:
+2. Нажимаем - X1 Укладчик. Инициализация
+3. Задаем кол-во витков на слой
+4. Мотаем один виток Y5 Намотчик. Виток +1, Можно еще один Y5 Намотчик. Виток +1.
+Если, начало не нравиться - меняем настройки катушки, разматываем и опять Инициализируем укладчик, Задаем кол-во витков на слой,
+Проверяем правильность Y3 Намотчик. Счетчик витков:. Повторяем этот пункт.
+5. Стартуем дальнейшую намотку в нужную сторону - Y4 Намотчик. Слой Лево/Право
+Счетчик витков на слой будет уменьшаться.
+Когда Y2 Намотчик. Витки на слой: дойдет до 0 - намотка остановиться
+
+Особенности:
+Если разматывать/наматывать вручную (не включая намотчик) то витки считаться не будут!
+Счетчик можно скорректировать в Y3 Намотчик. Счетчик витков:.
+Виток+/виток- мотают, и считают витки, но укладчик не двигается
+Если много разматывать - можно включить Y0 Намотчик - он будет мотать в заданную сторону Y5 Намотчик. Виток +1/-1.
+Скорость намотчика можно менять ползунком когда намотчик в работе. Начальная скорость задается в поле Y1 Намотчик. Начальная скорость:
+
+*/
 
 esp32:
   board: esp32dev
@@ -93,6 +119,7 @@ binary_sensor:
                 call.perform();
               }
 
+                //уменьшаем счетчик витков на слой
                 auto call = id(num_step_cur_turn).make_call();
                 call.number_decrement(true);
                 call.perform();
@@ -100,7 +127,7 @@ binary_sensor:
               if (id(g_layer_mode) == 11) //мотаем влево
               {
                 id(g_coil_counter)++;
-                int pos = id(g_layer_position) - (id(g_coil_counter) * id(num_d).state) / id(num_layer_step_size).state;
+                int pos = id(g_layer_position) - ((id(g_coil_counter) - 1) * id(num_d).state) / id(num_layer_step_size).state;
 
                 id(id_stepper_lay).set_target(pos);
 
@@ -108,10 +135,11 @@ binary_sensor:
                 callp.set_value(id(id_stepper_lay).target_position);
                 callp.perform();
               }
+
               if (id(g_layer_mode) == 12) //мотаем вправо
               {
                 id(g_coil_counter)++;
-                int pos = id(g_layer_position) + (id(g_coil_counter) * id(num_d).state) / id(num_layer_step_size).state;
+                int pos = id(g_layer_position) + ((id(g_coil_counter) - 1) * id(num_d).state) / id(num_layer_step_size).state;
 
                 id(id_stepper_lay).set_target(pos);
 
@@ -123,9 +151,25 @@ binary_sensor:
               if (id(g_rotator_turn_stop) == id(num_cur_turn).state)
               {
                 // Turn the fan off
-                id(g_layer_mode) = 10;
                 auto call = id(fan_rotator).turn_off();
                 call.perform();
+
+                if (id(g_layer_mode) == 11) //мотаем влево
+                {
+                  int pos = id(g_layer_position) - ((id(g_coil_counter)) * id(num_d).state) / id(num_layer_step_size).state;
+                  id(id_stepper_lay).set_target(pos);
+                }
+                if (id(g_layer_mode) == 12) //мотаем вправо
+                {
+                  int pos = id(g_layer_position) + ((id(g_coil_counter)) * id(num_d).state) / id(num_layer_step_size).state;
+                  id(id_stepper_lay).set_target(pos);
+                }
+
+                auto callp = id(id_layer_position).make_call();
+                callp.set_value(id(id_stepper_lay).target_position);
+                callp.perform();
+
+                id(g_layer_mode) = 10;
               }
             }
 
@@ -172,13 +216,14 @@ number:
   - platform: template
     name: "V1 Катушка. Начало:"
     id: num_offset
+    device_class: DISTANCE
     mode: box
     optimistic: true
     restore_value: true
     min_value: 0
     max_value: 100
     step: 0.01
-    unit_of_measurement: "мм."
+    unit_of_measurement: " мм."
   - platform: template
     name: "V2 Катушка. D проволоки:"
     id: num_d
@@ -211,17 +256,6 @@ number:
     step: 0.0001
     unit_of_measurement: "мм/шаг"
   - platform: template
-    name: "X3 Укладчик. Смещение:"
-    id: num_layer_position_offset
-    mode: box
-    optimistic: true
-    restore_value: true
-    min_value: -50
-    max_value: 50
-    initial_value: 0
-    step: 0.01
-    unit_of_measurement: "мм."
-  - platform: template
     name: "X4 Укладчик. Текущая позиция: "
     id: id_layer_position
     mode: box
@@ -233,7 +267,17 @@ number:
     step: 1
     unit_of_measurement: "шаг."
   - platform: template
-    name: "Y2 Намотчик. Витки всего:"
+    name: "Y2 Намотчик. Витки на слой:"
+    id: num_step_cur_turn
+    mode: box
+    optimistic: true
+    restore_value: true
+    min_value: -100000
+    max_value: 100000
+    initial_value: 0
+    step: 1
+  - platform: template
+    name: "Y3 Намотчик. Счетчик витков:"
     id: num_cur_turn
     mode: box
     optimistic: true
@@ -243,17 +287,7 @@ number:
     initial_value: 0
     step: 1
   - platform: template
-    name: "Y3 Намотчик. Витки на слой:"
-    id: num_step_cur_turn
-    mode: box
-    optimistic: true
-    restore_value: false
-    min_value: -100000
-    max_value: 100000
-    initial_value: 0
-    step: 1
-  - platform: template
-    name: "Y1 Намотчик. Скорость:"
+    name: "Y1 Намотчик. Начальная скорость:"
     id: n_layer_speed_turn
     mode: box
     optimistic: true
@@ -269,21 +303,15 @@ select:
     id: sl_begin
     optimistic: true
     options:
-      - "Со стороны привода"
-      - "Со свободной стороны"
-    initial_option: "Со стороны привода"
+      - "Слева"
+      - "Справа"
+    initial_option: "Слева"
     restore_value: true
 
 sensor:
   - platform: uptime
     name: Uptime Sensor
     id: uptime_id
-    update_interval: 1min
-
-#  - platform: esp32_hall
-#    name: "ESP32 Hall Sensor"
-#    id: hall_id
-#    update_interval: 30s
 
 stepper:
   - platform: uln2003
@@ -393,7 +421,10 @@ button:
                       position: 0
                   - number.set:
                       id: id_layer_position
-                      value: !lambda if(id(sl_begin).active_index() == 0) { return int((id(num_offset).state - id(num_layer_position_offset).state)/id(num_layer_step_size).state);} else {return int((id(num_offset).state + id(num_width).state + id(num_layer_position_offset).state)/id(num_layer_step_size).state);};
+                      value: !lambda |- 
+                        if(id(sl_begin).active_index() == 0) 
+                        { return int((id(num_offset).state)/id(num_layer_step_size).state);}
+                        else {return int((id(num_offset).state + id(num_width).state)/id(num_layer_step_size).state);};
                   - stepper.set_target:
                       id: id_stepper_lay
                       target: !lambda return id(id_layer_position).state;
@@ -413,6 +444,7 @@ button:
   - platform: template
     name: "Y6 Намотчик. STOP"
     id: id_layer_stop
+    internal: true
     on_press:
       - fan.turn_off: fan_rotator
       - globals.set:
@@ -422,13 +454,18 @@ button:
           id: g_rotator_turn_stop
           value: !lambda return id(num_cur_turn).state;
 
-switch:
+cover:
   - platform: template
     name: "Y4 Намотчик. Слой Лево/Право"
     assumed_state: true
     optimistic: true
-    restore_mode: DISABLED
-    turn_off_action:
+#    lambda: |-
+#      if (id(n_layer_speed_turn).state) {
+#        return COVER_OPEN;
+#      } else {
+#        return COVER_CLOSED;
+#      }
+    open_action:
       - globals.set:
           id: g_layer_mode
           value: "11"
@@ -458,7 +495,7 @@ switch:
           id: fan_rotator
           direction: forward
           speed: !lambda return id(n_layer_speed_turn).state;
-    turn_on_action:
+    close_action:
       - globals.set:
           id: g_layer_mode
           value: "12"
@@ -488,14 +525,18 @@ switch:
           id: fan_rotator
           direction: forward
           speed: !lambda return id(n_layer_speed_turn).state;
+    stop_action:
+      - button.press: id_layer_stop
 
   - platform: template
-    name: "Y5 Намотчик. Виток -1/+1"
+    name: "Y5 Намотчик. Виток +1/-1"
     assumed_state: true
     optimistic: true
-    restore_mode: DISABLED
-    turn_on_action:
+    open_action:
       - lambda: id(g_rotator_turn_stop) = int(id(num_cur_turn).state) + 1;
+      - globals.set:
+          id: g_layer_mode
+          value: "10"
       - fan.turn_on:
           id: fan_rotator
           direction: forward
@@ -510,9 +551,14 @@ switch:
           id: fan_rotator
           direction: forward
           speed: !lambda return id(n_layer_speed_turn).state;
-    turn_off_action:
+    close_action:
       - lambda: id(g_rotator_turn_stop) = int(id(num_cur_turn).state) - 1;
+      - globals.set:
+          id: g_layer_mode
+          value: "10"
       - fan.turn_on:
           id: fan_rotator
           direction: reverse
-          speed: !lambda return id(n_layer_speed_turn).state;
+          speed: !lambda return id(n_layer_speed_turn).state;          
+    stop_action:
+      - button.press: id_layer_stop          
