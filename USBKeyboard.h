@@ -1,6 +1,4 @@
 //
-// Author: Phong Vu
-// Modified by Tom Rust for use with ESPhome
 //
 #ifndef __USBKEYBOARD_H__
 #define __USBKEYBOARD_H__
