@@ -1,0 +1,166 @@
+esphome:
+  name: knopka-usb
+  libraries:
+    - USB
+  includes:
+    - USBKeyboard.h
+    - MeshRC.h
+  on_boot:
+  - priority: 800.0
+    then:
+      - lambda: |-
+          USBKeyboard::begin();
+  - priority: -100.0
+    then:
+      - lambda: |-
+          MeshRC::begin();
+          ESP_LOGD("MeshRC", "Local softAPmacAddress %s", WiFi.softAPmacAddress().c_str());
+          MeshRC::on("RELAY", [](const unsigned char* data, int size) {
+            if (*data == '0')
+            {
+              id(run_script).stop();
+              auto call = id(led).turn_on();
+              // set parameters (optional)
+              call.set_effect("Pulse");
+              // perform action:
+              call.perform();
+            }
+
+            if (*data == '1')
+            {
+              id(run_script).execute();
+            }
+          });
+      - light.turn_on:
+          id: led
+          effect: "Pulse"
+
+esp32:
+  board: lolin_s2_mini
+
+# Enable logging
+logger:
+  #level: NONE
+
+api:
+  password: ""
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  reboot_timeout: 0s
+  ap:
+    password: !secret ap_password
+    ap_timeout: 10s
+
+web_server:
+  port: 80
+  ota: false
+  version: 3
+  local: true
+
+#status_led:
+#  pin:
+#    number: LED
+#    inverted: false
+
+output:
+  - platform: ledc
+    id: pwm_led
+    pin:
+      number: LED
+      inverted: false
+    frequency: 1000 Hz
+    inverted: false
+
+light:
+  - platform: monochromatic
+    output: pwm_led
+    name: "Led"
+    id: led
+    default_transition_length: 0.1s
+    effects:
+      - automation:
+          name: "Pulse"
+          sequence:
+            - light.turn_on:
+                id: led
+                brightness: 50%
+            - delay: 0.1s
+            - light.turn_on:
+                id: led
+                brightness: 0%
+                transition_length: 3s
+            - delay: 5s
+      - automation:
+          name: "Fast pulse"
+          sequence:
+            - light.turn_on:
+                id: led
+                brightness: 50%
+            - delay: 0.1s
+            - light.turn_on:
+                id: led
+                brightness: 0%
+                transition_length: 1s
+            - delay: 1s
+      - automation:
+          name: "Very fast pulse"
+          sequence:
+            - light.turn_on:
+                id: led
+                brightness: 50%
+            - delay: 0.1s
+            - light.turn_on:
+                id: led
+                brightness: 0%
+                transition_length: 0.3s
+            - delay: 0.3s
+sensor:
+  - platform: internal_temperature
+    name: "Internal Temperature"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true      
+    filters:
+      - delayed_on: 50ms
+    name: "Boot button"
+    on_click: 
+      then:
+        - script.execute: run_script
+
+script:
+  - id: run_script
+    then:
+      - light.turn_on:
+          id: led
+          effect: "Very fast pulse"
+      - lambda: USBKeyboard::write('9');
+      - delay: 1s
+      - lambda: USBKeyboard::write('8');
+      - delay: 1s
+      - lambda: USBKeyboard::write('7');
+      - delay: 1s
+      - lambda: USBKeyboard::write('6');
+      - delay: 1s
+      - lambda: USBKeyboard::write('5');
+      - delay: 1s
+      - lambda: USBKeyboard::write('4');
+      - delay: 1s
+      - lambda: USBKeyboard::write('3');
+      - delay: 1s
+      - lambda: USBKeyboard::write('2');
+      - delay: 1s
+      - lambda: USBKeyboard::write('1');
+      - light.turn_on:
+          id: led
+          effect: "Fast pulse"

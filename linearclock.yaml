@@ -1,0 +1,318 @@
+#tested 2025-01-04
+#esphome  Version: 2024.12.2
+esphome:
+  name: linearclock
+  platform: ESP32
+  board: wemos_d1_mini32
+  platformio_options:
+    board_build.f_cpu: 80000000L # Reduce CPU speed
+
+  on_boot:
+    then:
+      # read the RTC time once when the system boots
+      - ds1307.read_time:
+      - datetime.datetime.set:
+          id: settime
+          datetime: !lambda |-
+            return id(host_time).now();
+      - number.set:
+          id: position6
+          value: !lambda "return id(pos6);"
+      - number.set:
+          id: position12
+          value: !lambda "return id(pos12);"
+      # Калибровка положения
+      - script.execute: go_motor_zero
+      - lambda: 'id(stage) = 0;'
+      
+wifi:
+  networks:
+    - ssid: !secret wifi_ssid_my_home1
+      password: !secret wifi_password_my_home1
+    - ssid: !secret wifi_ssid_my_home2
+      password: !secret wifi_password_my_home2
+  reboot_timeout: 0s
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap: {}
+
+# Enable logging
+logger:
+  #level: VERBOSE
+
+# Enable Home Assistant API
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: ""
+
+web_server:
+  local: true
+  version: 3
+  sorting_groups:
+  - id: sorting_group_time_settings
+    name: "Time Settings"
+    sorting_weight: 10
+  - id: sorting_group_stepper_settings
+    name: "Stepper settings"
+    sorting_weight: 20
+
+captive_portal:
+
+globals:
+  - id: position
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: stage
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: pos12
+    type: int
+    restore_value: yes
+    initial_value: '1920'
+  - id: pos6
+    type: int
+    restore_value: yes
+    initial_value: '29800'
+
+number:
+  - platform: template
+    name: Position 0/12
+    id: position12
+    mode: box
+    min_value: 0
+    max_value: 1000000
+    step: 1
+    optimistic: true
+    on_value:
+      - globals.set:
+          id: pos12
+          value: !lambda "return x;"
+
+  - platform: template
+    name: Position 6
+    id: position6
+    mode: box
+    min_value: 0
+    max_value: 1000000
+    step: 1
+    optimistic: true
+    on_value:
+      - globals.set:
+          id: pos6
+          value: !lambda "return x;"
+
+script:
+  - id: go_time
+    then:
+      - lambda: |-
+          auto time = id(host_time).now();
+          if (time.is_valid()) {
+            int pos = (id(pos6) - id(pos12)) / 6 * ((int) time.hour % 6) + (int) time.minute * (((id(pos6) - id(pos12)) / 6 ) / 60);
+            if (time.hour % 12 < 6)
+              id(f_stepper).set_target(id(pos12) + pos);
+            else
+              id(f_stepper).set_target(id(pos6) - pos);
+          }
+
+  - id: go_motor_full_down
+    then:
+      - lambda: 'id(f_stepper).set_target(id(pos6));'
+
+  - id: go_motor_zero
+    then:
+      - stepper.set_speed:
+          id: f_stepper
+          speed: 150 steps/s
+      - stepper.report_position:
+          id: f_stepper
+          position: !lambda "return id(pos12) * 2 + id(pos6);"
+      - stepper.set_target:
+          id: f_stepper
+          target: 0
+
+text_sensor:
+  - platform: template
+    name: "Current time"
+    web_server:
+      sorting_group_id: sorting_group_time_settings
+    lambda: |-
+      char str[30];
+      time_t currTime = id(host_time).now().timestamp;
+      strftime(str, sizeof(str), "%Y-%m-%d %H:%M:%S", localtime(&currTime));
+      return { str };
+    update_interval: 60s
+
+  - platform: template
+    id: curpos
+    name: "Current position"
+    lambda: |-
+      char str[30];
+      itoa(id(f_stepper).current_position,str,10);
+      return { str };
+    update_interval: 60s
+  
+  - platform: template
+    id: deltapos
+    name: "Delta position"
+    lambda: |-
+      char str[30];
+      itoa(id(f_stepper).current_position,str,10);
+      return { str };    
+    update_interval: never
+
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time_sync:
+      then:
+        ds1307.write_time:
+  - platform: ds1307
+    update_interval: never
+    id: ds1307_time
+  - platform: host
+    id: host_time
+    timezone: Europe/Minsk
+    on_time:
+      - seconds: 0
+        minutes: /1
+        then:
+          - if:
+              condition:
+                lambda: 'return id(stage) == 1;'
+              then:
+                - script.execute: go_time
+                - logger.log:
+                    format: "Position: %d"
+                    args: [ 'id(f_stepper).current_position' ]
+      - seconds: 2
+        minutes: 0
+        hours: /12
+        then:
+          - if:
+              #Рекалибровка
+              condition:
+                lambda: 'return id(stage) == 1;'
+              then:
+                - script.execute: go_motor_zero
+
+sensor:
+  - platform: wifi_signal
+    name: WiFi Signal
+    id: wifi_dbm
+  - platform: uptime
+    name: Uptime
+
+datetime:
+  - platform: template
+    name: Manual set datetime
+    id: settime
+    type: DATETIME
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_time_settings    
+    on_value:
+      then:
+        - lambda: |-
+            //ESP_LOGI("main", "Value of my datetime: %0d:%02d:%02d", id(settime).hour, id(settime).minute, id(settime).second);
+            ESPTime t=id(settime).state_as_esptime();
+            //ESP_LOGI("main", "Value of my timestamp: %d", t.timestamp);
+            struct timeval tvnow = {.tv_sec = t.timestamp};
+            settimeofday(&tvnow, NULL);
+        - ds1307.write_time:
+
+switch:
+  - platform: template
+    name: "Set to 0/12h"
+    id: switch_12
+    turn_on_action:
+      - logger.log: "Switch 12 On!"
+      - lambda: 'id(stage) = 2;'
+      - lambda: 'id(f_stepper).set_target(id(pos12));'
+      - component.update: curpos
+    on_turn_off:
+      - lambda: 'id(f_stepper).target_position = id(f_stepper).current_position;'
+      - component.update: curpos
+
+  - platform: template
+    name: "Set to 6h"
+    id: switch_6
+    turn_on_action:
+      - logger.log: "Switch 6 On!"
+      - lambda: 'id(stage) = 2;'
+      - lambda: 'id(f_stepper).set_target(id(pos6));'
+      - component.update: curpos
+    on_turn_off:
+      - lambda: 'id(f_stepper).target_position = id(f_stepper).current_position;'
+      - component.update: curpos
+
+  - platform: template
+    name: "Start calibrate"
+    id: switch_calibrate
+    optimistic: true
+    on_turn_on:
+      - script.execute: go_motor_zero
+      - lambda: 'id(stage) = 0;'
+      - component.update: curpos
+    on_turn_off:
+      - lambda: 'id(f_stepper).target_position = id(f_stepper).current_position;'
+      - component.update: curpos
+
+stepper:
+  - platform: uln2003
+    id: f_stepper
+    pin_a: 
+      number: GPIO12
+      #inverted: True
+    pin_b:
+      number: GPIO32
+      #inverted: True
+    pin_c:
+      number: GPIO25
+      #inverted: True
+    pin_d:
+      number: GPIO27
+      #inverted: True
+    step_mode: FULL_STEP
+    sleep_when_done: True  
+    max_speed: 150 steps/s
+    #acceleration: 2000
+    #deceleration: 2000
+
+binary_sensor:
+  - platform: gpio
+    name: "Pin touch"
+    pin: 
+      number: GPIO4
+      inverted: True
+      mode: INPUT_PULLUP
+    on_press:
+      then:
+        - logger.log:
+            format: "Position: %d"
+            args: [ 'id(f_stepper).current_position' ]
+        - component.update: deltapos
+        - stepper.report_position:
+            id: f_stepper
+            position: 0
+        - lambda: 'id(f_stepper).set_target(id(pos12));'
+        - delay: 12s
+        - lambda: 'id(stage) = 1;'
+        - script.execute: go_time
+        #- script.execute: go_motor_full_down
+        #- delay: 300s
+
+status_led:
+  pin:
+    number: LED
+    inverted: False
+
+i2c:
+  sda: 21
+  scl: 22
+  scan: True
+  frequency: 100kHz

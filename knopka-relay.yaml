@@ -5,7 +5,7 @@ substitutions:
 esphome:
   name: ${name}
   includes:
-    - esphome-esp-now-main/lib/MeshRC.h
+    - MeshRC.h
   libraries:
     - ESP8266WiFi
   on_boot:
@@ -41,7 +41,7 @@ wifi:
   reboot_timeout: 0s
   ap:
     ssid: ${name}
-    password: !secret wifi_password_home
+    password: !secret ap_password
     ap_timeout: 10s
 
 web_server:
