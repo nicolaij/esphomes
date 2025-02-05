@@ -145,7 +145,7 @@ binary_sensor:
               if (id(g_layer_mode) == 12) //мотаем вправо
               {
                 id(g_coil_counter)++;
-                int pos = id(g_layer_position) + ((id(g_coil_counter) - 1) * id(num_d).state) / id(num_layer_step_size).state;
+                int pos = id(g_layer_position) + ((id(g_coil_counter) + 1) * id(num_d).state) / id(num_layer_step_size).state;
 
                 id(id_stepper_lay).set_target(pos);
 
