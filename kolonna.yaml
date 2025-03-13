@@ -1,0 +1,623 @@
+#esphome  Version: 2024.12.2
+substitutions:
+  name: kolonna
+
+esphome:
+  name: ${name}
+  on_boot:
+    - priority: 600
+      then:
+        - lambda: |-
+            id(pid_climate1).set_kp(id(gpid1_p));
+            id(pid_climate1).set_ki(id(gpid1_i));
+            id(pid_climate1).set_kd(id(gpid1_d));
+            id(pid_climate2).set_kp(id(gpid2_p));
+            id(pid_climate2).set_ki(id(gpid2_i));
+            id(pid_climate2).set_kd(id(gpid2_d));
+        - number.set:
+            id: t1_target
+            value: !lambda return id(gset_t1);
+        - number.set:
+            id: t2_target
+            value: !lambda return id(gset_t2);
+        - number.set:
+            id: relay_target
+            value: !lambda return id(gset_relay);
+        - number.set:
+            id: relay_target_delta
+            value: !lambda return id(gset_relay_delta);
+        - number.set:
+            id: npid1_p
+            value: !lambda return id(pid_climate1).get_kp();
+        - number.set:
+            id: npid1_i
+            value: !lambda return id(pid_climate1).get_ki();
+        - number.set:
+            id: npid1_d
+            value: !lambda return id(pid_climate1).get_kd();
+        - number.set:
+            id: npid2_p
+            value: !lambda return id(pid_climate2).get_kp();
+        - number.set:
+            id: npid2_i
+            value: !lambda return id(pid_climate2).get_ki();
+        - number.set:
+            id: npid2_d
+            value: !lambda return id(pid_climate2).get_kd();            
+esp32:
+  board: nodemcu-32s
+
+# Enable logging
+logger:
+#  level: VERBOSE
+
+api:
+  reboot_timeout: 0s
+
+wifi:
+  ssid: !secret wifi_ssid_my_home
+  password: !secret wifi_password_my_home
+  reboot_timeout: 0s
+  ap:
+    password: !secret ap_password
+    ap_timeout: 10s
+
+web_server:
+  port: 80
+  ota: false
+  version: 3
+  local: true
+  sorting_groups:
+    - id: sorting_group_settings1
+      name: "Управление мощностью"
+      sorting_weight: 10
+    - id: sorting_group_settings2
+      name: "Температура в баке"
+      sorting_weight: 20
+    - id: sorting_group_settings3
+      name: "Температура на выходе"
+      sorting_weight: 30
+    - id: sorting_group_settings4
+      name: "Клапан"
+      sorting_weight: 40
+    - id: sorting_group_settings20
+      name: "PID Settings"
+      sorting_weight: 120
+
+#captive_portal:
+
+ota:
+  - platform: esphome
+    password: ""
+
+#status_led:
+#  pin:
+#    number: LED
+#    inverted: False
+
+sensor:
+  - platform: dallas_temp
+    address: 0x9addf97d1f64ff28
+    name: T1
+    id: temperature_sensor1
+    update_interval: 5s
+    web_server:
+      sorting_group_id: sorting_group_settings2
+
+  - platform: dallas_temp
+    address: 0x23085b6e1f64ff28
+    name: T2
+    id: temperature_sensor2
+    update_interval: 5s
+    web_server:
+      sorting_group_id: sorting_group_settings3
+    on_value:
+      - lambda: |-
+          if (id(sw_mode_relay_auto).state)
+          {
+            if (x > (id(gset_relay) - id(gset_relay_delta)) && x < (id(gset_relay) + id(gset_relay_delta)))
+            {
+              if (!id(relay).state)
+              {
+                id(relay).turn_on();
+                id(beep).execute();
+              }
+            }else
+            {
+              if (id(relay).state)
+              {
+                id(relay).turn_off();
+                id(beepbeep).execute();
+              }              
+            }
+          }
+
+  - platform: dallas_temp
+    address: 0x64924a6e1f64ff28
+    name: T3
+    id: temperature_sensor3
+    update_interval: 5s
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      
+  - platform: pid
+    climate_id: pid_climate1
+    name: "PID1 RESULT"
+    type: RESULT
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 101
+  - platform: pid
+    climate_id: pid_climate1
+    name: "PID1 ERROR"
+    type: ERROR
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 102
+  - platform: pid
+    climate_id: pid_climate1
+    name: "PID1 PROPORTIONAL"
+    type: PROPORTIONAL    
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 105
+  - platform: pid
+    climate_id: pid_climate1
+    name: "PID1 INTEGRAL"
+    type: INTEGRAL    
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 106
+  - platform: pid
+    climate_id: pid_climate1
+    name: "PID1 DERIVATIVE"
+    type: DERIVATIVE  
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 107
+
+  - platform: pid
+    climate_id: pid_climate2
+    name: "PID2 RESULT"
+    type: RESULT
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 101
+  - platform: pid
+    climate_id: pid_climate2
+    name: "PID2 ERROR"
+    type: ERROR
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 102
+  - platform: pid
+    climate_id: pid_climate2
+    name: "PID2 PROPORTIONAL"
+    type: PROPORTIONAL    
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 105
+  - platform: pid
+    climate_id: pid_climate2
+    name: "PID2 INTEGRAL"
+    type: INTEGRAL    
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 106
+  - platform: pid
+    climate_id: pid_climate2
+    name: "PID2 DERIVATIVE"
+    type: DERIVATIVE  
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 107
+
+one_wire:
+  - platform: gpio
+    pin: GPIO33
+
+climate:
+  - platform: pid
+    name: "PID Controller T1"
+    id: pid_climate1
+    sensor: temperature_sensor1
+    default_target_temperature: 21°C
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 90
+    visual:
+      min_temperature: 20
+      max_temperature: 100
+      temperature_step: 0.1
+    heat_output: heater_pid1
+    control_parameters:
+      kp: 0.5
+      ki: 0.005
+      kd: 6.0
+
+  - platform: pid
+    name: "PID Controller T2"
+    id: pid_climate2
+    sensor: temperature_sensor2
+    default_target_temperature: 21°C
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 90
+    visual:
+      min_temperature: 20
+      max_temperature: 100
+      temperature_step: 0.1
+    heat_output: heater_pid2
+    control_parameters:
+      kp: 0.49460
+      ki: 0.00487
+      kd: 12.56301
+
+button:
+  - platform: template
+    name: "PID Climate1 Autotune"
+    on_press:
+      - climate.pid.autotune: pid_climate1
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 100
+  - platform: template
+    name: "PID Climate2 Autotune"
+    on_press:
+      - climate.pid.autotune: pid_climate2
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 100
+  
+  - platform: template
+    name: "PID1 Set parameters"
+    on_press:
+    - lambda: |-
+        id(gpid1_p) = id(npid1_p).state;
+        id(gpid1_i) = id(npid1_i).state;
+        id(gpid1_d) = id(npid1_d).state;
+    - climate.pid.set_control_parameters:
+        id: pid_climate1
+        kp: !lambda return id(npid1_p).state;
+        ki: !lambda return id(npid1_i).state;
+        kd: !lambda return id(npid1_d).state;
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 115
+  - platform: template
+    name: "PID2 Set parameters"
+    on_press:
+    - lambda: |-
+        id(gpid2_p) = id(npid2_p).state;
+        id(gpid2_i) = id(npid2_i).state;
+        id(gpid2_d) = id(npid2_d).state;
+    - climate.pid.set_control_parameters:
+        id: pid_climate1
+        kp: !lambda return id(npid2_p).state;
+        ki: !lambda return id(npid2_i).state;
+        kd: !lambda return id(npid2_d).state;
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 125
+
+number:
+  - platform: template
+    name: Power
+    id: power
+    mode: box
+    device_class: power_factor
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings1
+    on_value:
+      - lambda: |- 
+          if (id(sw_mode).state) 
+          {
+            id(heater).set_level(x/100.0);
+          };
+  
+  - platform: template
+    name: "T1 Задание"
+    id: t1_target
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings2
+      sorting_weight: 89
+    on_value:
+      - lambda: |- 
+          id(pid_climate1).target_temperature=x;
+          id(gset_t1) = x;
+
+  - platform: template
+    name: "T2 Задание"
+    id: t2_target
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 89
+    on_value:
+      - lambda: |- 
+          id(pid_climate2).target_temperature=x;
+          id(gset_t2) = x;
+
+  - platform: template
+    name: "Relay Задание"
+    id: relay_target
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings4
+      sorting_weight: 89
+    on_value:
+      - lambda: |- 
+          id(gset_relay) = x;
+  - platform: template
+    name: "Relay Delta +-"
+    id: relay_target_delta
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings4
+      sorting_weight: 90
+    on_value:
+      - lambda: |- 
+          id(gset_relay_delta) = x;
+
+  - platform: template
+    name: "PID1 P"
+    id: npid1_p
+    mode: box
+    min_value: 0
+    max_value: 100
+    step: 0.001
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 110
+  - platform: template
+    name: "PID1 I"
+    id: npid1_i
+    mode: box
+    min_value: 0
+    max_value: 100
+    step: 0.001
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 111
+  - platform: template
+    name: "PID1 D"
+    id: npid1_d
+    mode: box
+    min_value: 0
+    max_value: 100
+    step: 0.001
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 112
+  - platform: template
+    name: "PID2 P"
+    id: npid2_p
+    mode: box
+    min_value: 0
+    max_value: 100
+    step: 0.001
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 120
+  - platform: template
+    name: "PID2_I"
+    id: npid2_i
+    mode: box
+    min_value: 0
+    max_value: 100
+    step: 0.001
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 121
+  - platform: template
+    name: "PID2_D"
+    id: npid2_d
+    mode: box
+    min_value: 0
+    max_value: 100
+    step: 0.001
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings20
+      sorting_weight: 122      
+
+output:
+#  - platform: sigma_delta_output
+#    update_interval: 5s
+  - platform: slow_pwm
+    period: 5s
+    id: heater
+    pin:
+      number: GPIO13
+      inverted: false
+  
+  - platform: template
+    id: heater_pid1
+    type: float
+    write_action:
+      - lambda: |-
+          if (id(sw_mode_t1).state)
+          {
+            id(heater).set_level(state);
+
+            auto call = id(power).make_call();
+            call.set_value(state * 100.0);
+            call.perform();
+          }
+
+  - platform: template
+    id: heater_pid2
+    type: float
+    write_action:
+      - lambda: |-
+          if (id(sw_mode_t2).state)
+          {
+            id(heater).set_level(state);
+
+            auto call = id(power).make_call();
+            call.set_value(state * 100.0);
+            call.perform();
+          }
+
+switch:
+  - platform: template
+    name: "1. Управление мощностью"
+    id: sw_mode
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings1
+    turn_on_action:
+      - switch.turn_off: sw_mode_t1
+      - switch.turn_off: sw_mode_t2
+      - lambda: id(heater).set_level(id(power).state/100.0);
+    turn_off_action:
+      - output.turn_off: heater
+
+  - platform: template
+    name: "2. Температура в баке"
+    id: sw_mode_t1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings2
+    turn_on_action:
+      - switch.turn_off: sw_mode
+      - switch.turn_off: sw_mode_t2
+      - climate.control:
+          id: pid_climate1
+          mode: "HEAT"
+    turn_off_action:
+      - climate.control:
+          id: pid_climate1
+          mode: "OFF"
+  
+  - platform: template
+    name: "3. Температура на выходе"
+    id: sw_mode_t2
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings3
+    turn_on_action:
+      - switch.turn_off: sw_mode_t1
+      - switch.turn_off: sw_mode
+      - climate.control:
+          id: pid_climate2
+          mode: "HEAT"  
+    turn_off_action:
+      - climate.control:
+          id: pid_climate2
+          mode: "OFF"
+
+  - platform: gpio
+    pin:
+      number: GPIO12
+      inverted: false
+    name: "Beeper"
+    id: beeper
+
+  - platform: gpio
+    pin: GPIO14
+    name: "Relay"
+    id: relay
+    web_server:
+      sorting_group_id: sorting_group_settings4
+
+  - platform: template
+    name: "Relay Auto"
+    id: sw_mode_relay_auto
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings4 
+      sorting_weight: 51      
+
+globals:
+  - id: gpid1_p
+    type: float
+    restore_value: yes
+    initial_value: "0.5"
+  - id: gpid1_i
+    type: float
+    restore_value: yes
+    initial_value: "0.005"
+  - id: gpid1_d
+    type: float
+    restore_value: yes
+    initial_value: "5.0"
+  - id: gpid2_p
+    type: float
+    restore_value: yes
+    initial_value: "0.5"
+  - id: gpid2_i
+    type: float
+    restore_value: yes
+    initial_value: "0.005"
+  - id: gpid2_d
+    type: float
+    restore_value: yes
+    initial_value: "5.0"
+  - id: gset_t1
+    type: float
+    restore_value: yes
+    initial_value: "21"
+  - id: gset_t2
+    type: float
+    restore_value: yes
+    initial_value: "22"
+  - id: gset_relay
+    type: float
+    restore_value: yes
+    initial_value: "77"
+  - id: gset_relay_delta
+    type: float
+    restore_value: yes
+    initial_value: "0.2"
+
+script:
+  - id: beep
+    then:
+      - switch.turn_on: beeper
+      - delay: 0.1s
+      - switch.turn_off: beeper
+  - id: beepbeep
+    then:
+      - switch.turn_on: beeper
+      - delay: 0.1s
+      - switch.turn_off: beeper
+      - delay: 0.1s
+      - switch.turn_on: beeper
+      - delay: 0.1s
+      - switch.turn_off: beeper         
