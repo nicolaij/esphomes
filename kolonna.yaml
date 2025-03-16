@@ -1,4 +1,13 @@
 #esphome  Version: 2024.12.2
+# 1. Режимы управление нагревателем:
+#    1. Задается в %. 0..100
+#    2. Регулятор температуры в баке. От датчика T1
+#    3. Регулятор температуры на выходе. От датчика T2
+# 2. Управление клапаном от датчика T2. Задание +- Delta. Срабатывание сопровождается писком.
+#    Короткий писк - попали в заданные диапазон. Открылся клапан.
+#    Двойной писк - Вышли из заданного диапазона. Закрылся клапан.
+# 3. По датчику T3 - только звуковая сигнализация. Длинный писк если превысили уставку.
+
 substitutions:
   name: kolonna
 
@@ -27,6 +36,9 @@ esphome:
             id: relay_target_delta
             value: !lambda return id(gset_relay_delta);
         - number.set:
+            id: t3_max
+            value: !lambda return id(gset_t3max);
+        - number.set:
             id: npid1_p
             value: !lambda return id(pid_climate1).get_kp();
         - number.set:
@@ -50,13 +62,14 @@ esp32:
 # Enable logging
 logger:
 #  level: VERBOSE
+#  level: INFO
 
 api:
   reboot_timeout: 0s
 
 wifi:
-  ssid: !secret wifi_ssid_my_home
-  password: !secret wifi_password_my_home
+#  ssid: !secret wifi_ssid_my_home
+#  password: !secret wifi_password_my_home
   reboot_timeout: 0s
   ap:
     password: !secret ap_password
@@ -115,7 +128,7 @@ sensor:
       - lambda: |-
           if (id(sw_mode_relay_auto).state)
           {
-            if (x > (id(gset_relay) - id(gset_relay_delta)) && x < (id(gset_relay) + id(gset_relay_delta)))
+            if (x >= (id(gset_relay) - id(gset_relay_delta)) && x <= (id(gset_relay) + id(gset_relay_delta)))
             {
               if (!id(relay).state)
               {
@@ -139,6 +152,14 @@ sensor:
     update_interval: 5s
     web_server:
       sorting_group_id: sorting_group_settings3
+      sorting_weight: 55
+    on_value:
+      - lambda: |-
+          if (x > id(gset_t3max))
+          {
+            id(longbeep).execute();
+          }
+        
       
   - platform: pid
     climate_id: pid_climate1
@@ -222,6 +243,7 @@ climate:
     id: pid_climate1
     sensor: temperature_sensor1
     default_target_temperature: 21°C
+    internal: true
     web_server:
       sorting_group_id: sorting_group_settings2
       sorting_weight: 90
@@ -240,6 +262,7 @@ climate:
     id: pid_climate2
     sensor: temperature_sensor2
     default_target_temperature: 21°C
+    internal: true
     web_server:
       sorting_group_id: sorting_group_settings3
       sorting_weight: 90
@@ -350,11 +373,28 @@ number:
     optimistic: true
     web_server:
       sorting_group_id: sorting_group_settings3
-      sorting_weight: 89
+      sorting_weight: 51
     on_value:
       - lambda: |- 
           id(pid_climate2).target_temperature=x;
           id(gset_t2) = x;
+
+  - platform: template
+    name: "T3 Максимум"
+    id: t3_max
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settings3
+      sorting_weight: 56
+    on_value:
+      - lambda: |- 
+          id(gset_t3max) = x;
 
   - platform: template
     name: "Relay Задание"
@@ -380,7 +420,7 @@ number:
     unit_of_measurement: "°C"
     min_value: 0
     max_value: 100
-    step: 0.1
+    step: 0.01
     optimistic: true
     web_server:
       sorting_group_id: sorting_group_settings4
@@ -546,8 +586,12 @@ switch:
     pin:
       number: GPIO12
       inverted: false
-    name: "Beeper"
+    name: "Beeper TEST"
     id: beeper
+    internal: true
+    web_server:
+      sorting_group_id: sorting_group_settings4
+      sorting_weight: 151      
 
   - platform: gpio
     pin: GPIO14
@@ -557,7 +601,7 @@ switch:
       sorting_group_id: sorting_group_settings4
 
   - platform: template
-    name: "Relay Auto"
+    name: "Relay Auto (T2)"
     id: sw_mode_relay_auto
     optimistic: true
     web_server:
@@ -605,6 +649,10 @@ globals:
     type: float
     restore_value: yes
     initial_value: "0.2"
+  - id: gset_t3max
+    type: float
+    restore_value: yes
+    initial_value: "50"
 
 script:
   - id: beep
@@ -620,4 +668,10 @@ script:
       - delay: 0.1s
       - switch.turn_on: beeper
       - delay: 0.1s
-      - switch.turn_off: beeper         
+      - switch.turn_off: beeper
+  - id: longbeep
+    then:
+      - switch.turn_on: beeper
+      - delay: 1s
+      - switch.turn_off: beeper
+  
