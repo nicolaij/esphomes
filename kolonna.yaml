@@ -13,10 +13,13 @@ substitutions:
 
 esphome:
   name: ${name}
+  includes:
+    SSR.h
   on_boot:
     - priority: 600
       then:
         - lambda: |-
+            SSR::begin(13, 200); //pin 13, cycle - 2s (0.5% точность)
             id(pid_climate1).set_kp(id(gpid1_p));
             id(pid_climate1).set_ki(id(gpid1_i));
             id(pid_climate1).set_kd(id(gpid1_d));
@@ -55,7 +58,25 @@ esphome:
             value: !lambda return id(pid_climate2).get_ki();
         - number.set:
             id: npid2_d
-            value: !lambda return id(pid_climate2).get_kd();            
+            value: !lambda return id(pid_climate2).get_kd();
+        - number.set:
+            id: R_t1_target
+            value: !lambda return id(gset_R_t1_target);                   
+        - number.set:
+            id: R_p_target
+            value: !lambda return id(gset_R_p_target);
+        - number.set:
+            id: R_t1_stop
+            value: !lambda return id(gset_R_t1_stop);
+        - number.set:
+            id: R_t3_stop
+            value: !lambda return id(gset_R_t3_stop);
+        - number.set:
+            id: P_t1_stop
+            value: !lambda return id(gset_P_t1_stop);          
+        - number.set:
+            id: P_p_target
+            value: !lambda return id(gset_P_p_target);            
 esp32:
   board: nodemcu-32s
 
@@ -82,20 +103,26 @@ web_server:
   local: true
   sorting_groups:
     - id: sorting_group_settings1
-      name: "Управление мощностью"
+      name: "Параметры"
       sorting_weight: 10
     - id: sorting_group_settings2
       name: "Температура в баке"
-      sorting_weight: 20
+      sorting_weight: 120
     - id: sorting_group_settings3
       name: "Температура на выходе"
-      sorting_weight: 30
+      sorting_weight: 130
     - id: sorting_group_settings4
       name: "Клапан"
+      sorting_weight: 30
+    - id: sorting_group_settingsR
+      name: "Ректификация"
+      sorting_weight: 20
+    - id: sorting_group_settingsP
+      name: "Потстилл"
       sorting_weight: 40
     - id: sorting_group_settings20
       name: "PID Settings"
-      sorting_weight: 120
+      sorting_weight: 150
 
 #captive_portal:
 
@@ -113,17 +140,56 @@ sensor:
     address: 0x9addf97d1f64ff28
     name: T1
     id: temperature_sensor1
-    update_interval: 5s
+    update_interval: 2s
     web_server:
-      sorting_group_id: sorting_group_settings2
+      sorting_group_id: sorting_group_settings1
+    on_value:
+      - lambda: |-
+          if (id(sw_mode_Rauto).state)
+          {
+            if(id(g_R_stage) == 0) //start
+            {
+              id(g_R_stage) = 1;
+              id(heater_R).set_level(1.0);
+            }
+
+            if(id(g_R_stage) == 1) //set power
+            {
+              if (x >= id(gset_R_t1_target))
+              {
+                id(g_R_stage) = 2;
+                id(heater_R).set_level(id(gset_R_p_target) / 100.0);
+                id(longbeep).execute();
+              }
+            }
+
+            if(id(g_R_stage) == 2) //end
+            {
+              if (x >= id(gset_R_t1_stop))
+              {
+                id(g_R_stage) = 3;
+                id(heater_R).set_level(0);
+                id(longbeep).execute();
+              }
+            }
+          }
+          
+          if (id(sw_mode_Pauto).state)
+          {
+            if (x >= id(gset_P_t1_stop))
+            {
+              id(heater_P).set_level(0);
+              id(longbeep).execute();
+            }
+          }
 
   - platform: dallas_temp
     address: 0x23085b6e1f64ff28
     name: T2
     id: temperature_sensor2
-    update_interval: 5s
+    update_interval: 2s
     web_server:
-      sorting_group_id: sorting_group_settings3
+      sorting_group_id: sorting_group_settings1
     on_value:
       - lambda: |-
           if (id(sw_mode_relay_auto).state)
@@ -145,22 +211,34 @@ sensor:
             }
           }
 
+          if (id(relay).state)
+          {
+            id(text_klapan).publish_state("Открыт");
+          }else
+          {
+            id(text_klapan).publish_state("Закрыт");
+          }
+
   - platform: dallas_temp
     address: 0x64924a6e1f64ff28
     name: T3
     id: temperature_sensor3
-    update_interval: 5s
+    update_interval: 2s
     web_server:
-      sorting_group_id: sorting_group_settings3
-      sorting_weight: 55
+      sorting_group_id: sorting_group_settings1
     on_value:
       - lambda: |-
-          if (x > id(gset_t3max))
+          if (x >= id(gset_t3max))
           {
             id(longbeep).execute();
           }
+
+          if (id(sw_mode_Rauto).state && x >= id(gset_R_t3_stop))
+          {
+            id(heater_R).set_level(0);
+            id(longbeep).execute();
+          }
         
-      
   - platform: pid
     climate_id: pid_climate1
     name: "PID1 RESULT"
@@ -332,16 +410,13 @@ number:
     unit_of_measurement: "%"
     min_value: 0
     max_value: 100
-    step: 1
+    step: 0.1
     optimistic: true
     web_server:
       sorting_group_id: sorting_group_settings1
     on_value:
-      - lambda: |- 
-          if (id(sw_mode).state) 
-          {
+      - lambda: |-
             id(heater).set_level(x/100.0);
-          };
   
   - platform: template
     name: "T1 Задание"
@@ -412,6 +487,7 @@ number:
     on_value:
       - lambda: |- 
           id(gset_relay) = x;
+
   - platform: template
     name: "Relay Delta +-"
     id: relay_target_delta
@@ -428,6 +504,116 @@ number:
     on_value:
       - lambda: |- 
           id(gset_relay_delta) = x;
+
+  - platform: template
+    name: "1. Нагрев до (T1)"
+    id: R_t1_target
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsR
+      sorting_weight: 10
+    on_value:
+      - lambda: |- 
+          id(gset_R_t1_target) = x;
+
+  - platform: template
+    name: "2. Мощность рабочая"
+    id: R_p_target
+    mode: box
+    device_class: power_factor
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsR
+      sorting_weight: 20
+    on_value:
+      - lambda: |- 
+          id(gset_R_p_target) = x;
+          if (id(sw_mode_Rauto).state)
+          {
+            id(heater_R).set_level(x / 100.0);
+          }
+
+  - platform: template
+    name: "3. Отключение нагревателя (T1)"
+    id: R_t1_stop
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsR
+      sorting_weight: 30
+    on_value:
+      - lambda: |- 
+          id(gset_R_t1_stop) = x;
+
+  - platform: template
+    name: "4. Отключение нагревателя (T3)"
+    id: R_t3_stop
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsR
+      sorting_weight: 41
+    on_value:
+      - lambda: |- 
+          id(gset_R_t3_stop) = x;
+
+  - platform: template
+    name: "1. Мощность рабочая"
+    id: P_p_target
+    mode: box
+    device_class: power_factor
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsP
+      sorting_weight: 20
+    on_value:
+      - lambda: |- 
+          id(gset_P_p_target) = x;
+          if (id(sw_mode_Pauto).state)
+          {
+            id(heater_P).set_level(x / 100.0);
+          }
+
+  - platform: template
+    name: "2. Отключение нагревателя (T1)"
+    id: P_t1_stop
+    mode: box
+    device_class: TEMPERATURE
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 100
+    step: 0.1
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsP
+      sorting_weight: 30
+    on_value:
+      - lambda: |- 
+          id(gset_P_t1_stop) = x;
 
   - platform: template
     name: "PID1 P"
@@ -497,15 +683,19 @@ number:
       sorting_weight: 122      
 
 output:
-#  - platform: sigma_delta_output
-#    update_interval: 5s
-  - platform: slow_pwm
-    period: 5s
+#  - platform: slow_pwm
+#    period: 5s
+#    id: heater
+#    pin:
+#      number: GPIO13
+#      inverted: false
+
+  - platform: template
     id: heater
-    pin:
-      number: GPIO13
-      inverted: false
-  
+    type: float
+    write_action:
+      - lambda: SSR::set_level(state);
+
   - platform: template
     id: heater_pid1
     type: float
@@ -513,8 +703,6 @@ output:
       - lambda: |-
           if (id(sw_mode_t1).state)
           {
-            id(heater).set_level(state);
-
             auto call = id(power).make_call();
             call.set_value(state * 100.0);
             call.perform();
@@ -527,8 +715,30 @@ output:
       - lambda: |-
           if (id(sw_mode_t2).state)
           {
-            id(heater).set_level(state);
+            auto call = id(power).make_call();
+            call.set_value(state * 100.0);
+            call.perform();
+          }
 
+  - platform: template
+    id: heater_R
+    type: float
+    write_action:
+      - lambda: |-
+          if (id(sw_mode_Rauto).state)
+          {
+            auto call = id(power).make_call();
+            call.set_value(state * 100.0);
+            call.perform();
+          }
+
+  - platform: template
+    id: heater_P
+    type: float
+    write_action:
+      - lambda: |-
+          if (id(sw_mode_Pauto).state)
+          {
             auto call = id(power).make_call();
             call.set_value(state * 100.0);
             call.perform();
@@ -536,26 +746,12 @@ output:
 
 switch:
   - platform: template
-    name: "1. Управление мощностью"
-    id: sw_mode
-    optimistic: true
-    web_server:
-      sorting_group_id: sorting_group_settings1
-    turn_on_action:
-      - switch.turn_off: sw_mode_t1
-      - switch.turn_off: sw_mode_t2
-      - lambda: id(heater).set_level(id(power).state/100.0);
-    turn_off_action:
-      - output.turn_off: heater
-
-  - platform: template
     name: "2. Температура в баке"
     id: sw_mode_t1
     optimistic: true
     web_server:
       sorting_group_id: sorting_group_settings2
     turn_on_action:
-      - switch.turn_off: sw_mode
       - switch.turn_off: sw_mode_t2
       - climate.control:
           id: pid_climate1
@@ -573,7 +769,6 @@ switch:
       sorting_group_id: sorting_group_settings3
     turn_on_action:
       - switch.turn_off: sw_mode_t1
-      - switch.turn_off: sw_mode
       - climate.control:
           id: pid_climate2
           mode: "HEAT"  
@@ -582,6 +777,43 @@ switch:
           id: pid_climate2
           mode: "OFF"
 
+  - platform: template
+    name: "Старт ректификации"
+    id: sw_mode_Rauto
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsR
+      sorting_weight: 1
+    turn_on_action:
+      - switch.turn_off: sw_mode_t2
+      - switch.turn_off: sw_mode_t1
+      - switch.turn_off: sw_mode_Pauto
+      - globals.set:
+          id: g_R_stage
+          value: '0'
+      - switch.turn_on: sw_mode_relay_auto
+    turn_off_action:
+      - number.set:
+          id: power
+          value: 0
+
+  - platform: template
+    name: "Потстилл"
+    id: sw_mode_Pauto
+    optimistic: true
+    web_server:
+      sorting_group_id: sorting_group_settingsP
+      sorting_weight: 1
+    turn_on_action:
+      - switch.turn_off: sw_mode_t2
+      - switch.turn_off: sw_mode_t1
+      - switch.turn_off: sw_mode_Rauto
+      - lambda: id(heater_P).set_level(id(gset_P_p_target) / 100.0);
+    turn_off_action:
+      - number.set:
+          id: power
+          value: 0
+          
   - platform: gpio
     pin:
       number: GPIO12
@@ -653,6 +885,47 @@ globals:
     type: float
     restore_value: yes
     initial_value: "50"
+  - id: gset_R_t1_target
+    type: float
+    restore_value: yes
+    initial_value: "50"
+  - id: gset_R_p_target
+    type: float
+    restore_value: yes
+    initial_value: "70"
+  - id: gset_R_t1_stop
+    type: float
+    restore_value: yes
+    initial_value: "90"
+  - id: gset_R_t3_stop
+    type: float
+    restore_value: yes
+    initial_value: "60"
+  - id: gset_P_t1_stop
+    type: float
+    restore_value: yes
+    initial_value: "80"
+  - id: gset_P_p_target
+    type: float
+    restore_value: yes
+    initial_value: "70"
+  - id: g_R_stage
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+text:
+  - platform: template
+    name: "Клапан"
+    id: text_klapan
+    optimistic: true
+    mode: text
+    min_length: 0
+    max_length: 20
+    web_server:
+      sorting_group_id: sorting_group_settings1
+      sorting_weight: 60
+
 
 script:
   - id: beep
