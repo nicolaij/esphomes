@@ -93,10 +93,12 @@ cover:
     name: "Вода"
     
     open_action:
+      - switch.turn_off: close_valve_switch
       - switch.turn_on: open_valve_switch
     open_duration: 30s
 
     close_action:
+      - switch.turn_off: open_valve_switch
       - switch.turn_on: close_valve_switch
     close_duration: 30s
 
