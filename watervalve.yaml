@@ -1,0 +1,105 @@
+esphome:
+  name: watervalve
+  platformio_options:
+    board_build.flash_mode: dio
+    board_build.f_cpu: 80000000L
+
+esp32:
+  board: lolin_c3_mini #ESP32 C3 Super Mini Plus
+  framework:
+    type: esp-idf
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid_home1 
+    password: !secret wifi_password_home1
+  - ssid: !secret wifi_ssid_my_home2
+    password: !secret wifi_password_my_home2
+
+  ap:
+    ssid: "Water valve Fallback Hotspot"
+    password: !secret ap_password
+
+# Make sure logging is not using the serial port
+logger:
+
+# Enable Home Assistant API
+api:
+
+# Make sure you can upload new firmware OTA
+ota:
+  platform: esphome
+
+web_server:
+  port: 80
+  local: true
+
+#status_led:
+#  pin:
+#    number: GPIO8
+#    inverted: true
+#    allow_other_uses: true
+
+light:
+  - platform: esp32_rmt_led_strip
+    rgb_order: GRB
+    pin: 
+      number: GPIO8
+    num_leds: 1
+    chipset: ws2812
+    name: "Onboard RGB LED"
+
+sensor:
+  - platform: internal_temperature
+    name: ESP Temperature
+    entity_category: "diagnostic"
+  - platform: uptime
+    name: Uptime
+    id: sys_uptime
+  - platform: wifi_signal 
+    name: WiFi RSSI
+    id: wifi_signal_db
+
+  - platform: dht
+    pin: GPIO4
+    temperature:
+      name: "Temperature"
+    humidity:
+      name: "Humidity"
+
+binary_sensor:
+  - platform: gpio
+    name: "Onboard Button"
+    pin:
+      number: GPIO9
+      inverted: true
+
+switch:
+  - platform: gpio
+    id: open_valve_switch
+    name: "Open"
+    pin:
+      number: GPIO3
+      inverted: true
+  - platform: gpio
+    id: close_valve_switch
+    name: "Close"
+    pin:
+      number: GPIO1
+      inverted: true
+
+cover:
+  - platform: time_based
+    name: "Вода"
+    
+    open_action:
+      - switch.turn_on: open_valve_switch
+    open_duration: 30s
+
+    close_action:
+      - switch.turn_on: close_valve_switch
+    close_duration: 30s
+
+    stop_action:
+      - switch.turn_off: open_valve_switch
+      - switch.turn_off: close_valve_switch

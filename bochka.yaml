@@ -3,13 +3,38 @@ esphome:
   on_boot:
     priority: -100
     then:
-      - delay: 20s
+      - component.update: sonic
+      - component.update: batt
+      - component.update: air_sensor
+      - component.update: wifi_level
+      - delay: 10s
+      - if:
+          condition:
+            lambda: 'return isnan(id(sonic).state);'
+          then:
+            - component.update: sonic
+            - delay: 5s
+      - if:
+          condition:
+            lambda: 'return isnan(id(sonic).state);'
+          then:
+            - component.update: sonic
+            - delay: 5s
+      - if:
+          condition:
+            lambda: 'return isnan(id(sonic).state);'
+          then:
+            - component.update: sonic
+            - delay: 5s
       - deep_sleep.enter:
           id: deep_sleep_1
           sleep_duration: !lambda |-
-            if (id(batt).state > 3.6) return 10 * 60 * 1000 /*10min*/;
-            else if (id(batt).state > 3.5) return 20 * 60 * 1000 /*20min*/;
-            else if (id(batt).state > 3.4) return 60 * 60 * 1000 /*60min*/;
+            if (isnan(id(batt).state)) return 20 * 60 * 1000; /* ? 20 min*/
+            if (id(batt).state > 3.8) return 5 * 60 * 1000;
+            else if (id(batt).state > 3.7) return 10 * 60 * 1000;
+            else if (id(batt).state > 3.6) return 20 * 60 * 1000;
+            else if (id(batt).state > 3.5) return 40 * 60 * 1000;
+            else if (id(batt).state > 3.4) return 80 * 60 * 1000;
             else return 12 * 60 * 60 * 1000 /*12hours*/;
 
 esp8266:
@@ -18,7 +43,7 @@ esp8266:
 deep_sleep:
   id: deep_sleep_1
   run_duration: 60s
-  sleep_duration: 60min
+  sleep_duration: 60s
 
 # Enable logging
 logger:
@@ -35,8 +60,8 @@ wifi:
   networks:
   - ssid: !secret wifi_ssid_home1 
     password: !secret wifi_password_home1
-  - ssid: !secret wifi_ssid_home2
-    password: !secret wifi_password_home2
+  - ssid: !secret wifi_ssid_my_home2
+    password: !secret wifi_password_my_home2
 
   ap:
     ssid: "Bochka Fallback Hotspot"
@@ -57,29 +82,40 @@ i2c:
 # Example configuration entry
 sensor:
   - platform: ultrasonic
-    trigger_pin: D5
+    trigger_pin:
+      number: D5
+      inverted: true
     echo_pin: D6
-    pulse_time: 30us
-    timeout: 40m
+    pulse_time: 20us
+    timeout: 10m
     name: "Ultrasonic Sensor"
     id: sonic
-    #update_interval: 60s
+    update_interval: 10s
+    filters:
+      - median:
     on_value:
       - sensor.template.publish:
           id: water_level
           state: !lambda "return 100 / (0.19 - 1.05) * (id(sonic).state - 1.05);"
 
   - platform: wifi_signal
+    id: wifi_level
     name: "WiFi Signal Sensor"
 
   - platform: adc
     id: batt
     pin: A0
     name: "Battery voltage"
+    device_class: "voltage"
     filters:
       - multiply: 5.19
+      - median:
+    on_value:
+      then:
+        - component.update: batpercent
 
   - platform: aht10
+    id: air_sensor
     temperature:
       name: "Air Temperature"
       id: air_temperature
@@ -96,3 +132,25 @@ sensor:
     name: "Water level"
     id: water_level
     unit_of_measurement: "%"
+    update_interval: never
+
+  - platform: template
+    name: "Battery"
+    id: batpercent
+    lambda: return id(batt).state;
+    accuracy_decimals: 0
+    unit_of_measurement: "%"
+    icon: mdi:battery-medium
+    device_class: "battery"
+    update_interval: never
+    filters:
+      - calibrate_linear:
+         method: exact
+         datapoints:
+          - 0.00 -> 0.0
+          - 3.00 -> 0.0
+          - 3.30 -> 10.0
+          - 3.60 -> 30.0
+          - 3.80 -> 60.0
+          - 4.00 -> 85.0
+          - 4.20 -> 100.0

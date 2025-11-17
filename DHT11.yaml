@@ -1,0 +1,90 @@
+esphome:
+  name: dht11
+
+esp8266:
+  board: d1_mini
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  networks:
+  - ssid: !secret wifi_ssid_home1 
+    password: !secret wifi_password_home1
+  - ssid: !secret wifi_ssid_my_home2
+    password: !secret wifi_password_my_home2
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "dht11 Fallback Hotspot"
+    password: !secret ap_password
+
+web_server:
+  port: 80
+  include_internal: true
+  ota: false
+
+#status_led:
+#  pin:
+#    number: D4
+#    inverted: true
+
+
+sensor:
+  - platform: dht
+    pin: D2
+    model: DHT11
+    temperature:
+      name: "DHT. Temperature"
+    humidity:
+      name: "DHT. Humidity"
+    update_interval: 10s
+
+  - platform: wifi_signal
+    name: "WiFi Signal Sensor"
+    update_interval: 5s
+
+  - platform: adc
+    id: batt
+    pin: A0
+    name: "Battery voltage"
+    device_class: "voltage"
+    filters:
+      - multiply: 5.93
+    on_value:
+      then:
+        - component.update: batpercent
+    update_interval: 10s
+
+  - platform: template
+    name: "Battery"
+    id: batpercent
+    lambda: return id(batt).state;
+    accuracy_decimals: 0
+    unit_of_measurement: "%"
+    device_class: "battery"
+    filters:
+      - calibrate_linear:
+         method: exact
+         #TI Application Note Battery Gauging Algorithm Comparison  (exlude 2.85v = 0)
+         datapoints:
+          - 0.00 -> 0.0
+          - 3.00 -> 0.0
+          - 3.20 -> 10.0
+          - 3.38 -> 20.0
+          - 3.53 -> 30.0
+          - 3.61 -> 40.0
+          - 3.72 -> 50.0
+          - 3.82 -> 60.0
+          - 3.90 -> 70.0
+          - 3.99 -> 80.0
+          - 4.07 -> 90.0
+          - 4.16 -> 100.0
