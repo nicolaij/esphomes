@@ -30,6 +30,14 @@ substitutions:
   log_throttle_ms: "1000"
   # Периодическая сводная таблица ID (0 - выключить)
   table_dump_ms: "10000"
+  # Через сколько после включения/нажатия кнопки гаснет экран
+  screen_timeout_ms: "30000"
+  # Синий светодиод на GPIO8:
+  #   true  - светодиод подключён к +3.3В (катодом к GPIO), горит при LOW
+  #   false - светодиод подключён к GND (анодом к GPIO), горит при HIGH
+  led_inverted: "true"
+  # Длительность вспышки по каждому принятому UDS-пакету
+  led_blink_ms: "40"
 
 esphome:
   name: ${device_name}
@@ -42,6 +50,8 @@ esphome:
     then:
       - lambda: |-
           uds_decode::monitor().begin(${log_every_frame}, ${log_throttle_ms}, ${table_dump_ms});
+          id(display_off_at) = millis() + ${screen_timeout_ms};
+          uds_decode::reader().set_on_message([]() { id(led_blink)->execute(); });
 
 esp32:
   board: lolin_c3_mini
@@ -74,6 +84,7 @@ font:
 
 display:
   - platform: ssd1306_i2c
+    id: disp
     model: "SSD1306 72x40"
     address: 0x3C
     update_interval: 500ms
@@ -86,6 +97,50 @@ display:
       it.printf(0, 20, id(font_ui), "ID%3u FPS%3u", static_cast<unsigned>(bus.unique_ids()),
                 static_cast<unsigned>(bus.fps()));
       it.printf(0, 30, id(font_ui), "%.13s", uds.last().c_str());
+
+globals:
+  # Момент (millis), когда экран нужно погасить
+  - id: display_off_at
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
+
+binary_sensor:
+  # Кнопка на GPIO9 (на плате LOLIN C3 Mini это кнопка BOOT)
+  - platform: gpio
+    id: wake_button
+    pin:
+      number: GPIO9
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on: 20ms
+    on_press:
+      - lambda: |-
+          id(display_off_at) = millis() + ${screen_timeout_ms};
+          if (!id(disp)->is_on()) {
+            id(disp)->turn_on();
+            ESP_LOGI("screen", "экран включён кнопкой");
+          }
+          id(led_blink)->execute();
+
+output:
+  # Синий светодиод "принят правильный пакет"
+  - platform: gpio
+    id: led_blue
+    pin:
+      number: GPIO8
+      inverted: ${led_inverted}
+
+script:
+  - id: led_blink
+    mode: single
+    then:
+      - output.turn_on: led_blue
+      - delay: ${led_blink_ms}ms
+      - output.turn_off: led_blue
 
 canbus:
   - id: can_bus
@@ -145,6 +200,10 @@ interval:
           id(can_ids).publish_state(bus.unique_ids());
           id(can_fps).publish_state(bus.fps());
           id(uds_last).publish_state(uds.last());
+          if (id(display_off_at) != 0 && id(disp)->is_on() && millis() >= id(display_off_at)) {
+            id(disp)->turn_off();
+            ESP_LOGI("screen", "экран погашен по таймауту");
+          }
 
 sensor:
   - platform: template

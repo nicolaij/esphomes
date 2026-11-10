@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <string>
 
 #include "esphome/core/hal.h"
@@ -326,6 +327,10 @@ class Reader {
   // Периодический вызов (раз в секунду): ловит таймауты незавершённых сообщений.
   void poll();
 
+  // Колбэк на каждое успешно собранное/расшифрованное UDS-сообщение
+  // (например, короткая вспышка светодиода).
+  void set_on_message(std::function<void()> callback) { this->on_message_ = std::move(callback); }
+
   uint32_t frames() const { return this->stats_.frames; }
   uint32_t packets() const { return this->stats_.packets; }
   uint32_t errors() const { return this->stats_.errors; }
@@ -344,6 +349,7 @@ class Reader {
   Stats stats_{};
   TpSession sessions_[TP_MAX_SESSIONS]{};
   std::string last_{"-"};
+  std::function<void()> on_message_{};
 };
 
 // Ответы ЭБУ: 11-бит 0x7E8..0x7EF, 29-бит 0x18DAF1xx.
@@ -513,6 +519,8 @@ inline void Reader::decode_(uint32_t can_id, const uint8_t *data, size_t len) {
 
   ESP_LOGI(TAG, "%s", text);
   this->last_ = text;
+  if (this->on_message_)
+    this->on_message_();
 }
 
 inline void Reader::format_request_(uint32_t can_id, const uint8_t *data, size_t len, char *out, size_t out_n) {
