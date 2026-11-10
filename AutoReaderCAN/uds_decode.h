@@ -1,21 +1,28 @@
 #pragma once
 
 // ---------------------------------------------------------------------------
-//  Пассивный декодер UDS (ISO 14229) поверх ISO-TP (ISO 15765-2)
-//  для ESPHome / ESP32 + canbus.
+//  Пассивный монитор CAN-шины + декодер UDS (ISO 14229) поверх ISO-TP
+//  (ISO 15765-2) для ESPHome / ESP32 + canbus.
 //
-//  Задача: слушать диагностический обмен на CAN-шине автомобиля
-//  (в режиме LISTENONLY ничего не передаётся), собирать многокадровые
-//  ISO-TP сообщения и печатать их в лог в расшифрованном виде.
+//  Задача: видеть ВСЕ кадры на шине (какие ID/блоки шлют данные),
+//  а диагностический обмен дополнительно разбирать как UDS
+//  (в режиме LISTENONLY ничего не передаётся).
 //
-//  Счётчики (кадры, пакеты, ошибки, NRC) отдаются наружу для дисплея.
+//  Возможности:
+//   - живой лог кадров по каждому ID (с ограничением частоты);
+//   - периодическая сводная таблица: ID, количество, период, последние данные;
+//   - счётчик уникальных ID и кадров/сек;
+//   - сборка многокадровых ISO-TP сообщений и расшифровка UDS.
 //
 //  Подключение в YAML:
 //      esphome:
 //        includes: [uds_decode.h]
 //      ...
 //      - lambda: |-
-//          uds_decode::reader().handle_frame(can_id, x.data(), x.size());
+//          uds_decode::monitor().on_frame(can_id, false, remote_transmission_request,
+//                                         x.data(), x.size());
+//      - lambda: |-
+//          uds_decode::monitor().begin(false, 1000, 10000);
 //
 //  ВАЖНО: все вызовы идут из главного цикла ESPHome (on_frame + interval),
 //  поэтому мьютексы не нужны. Если начнёте звать из другого потока -
@@ -45,6 +52,14 @@ static const size_t TP_MAX_MESSAGE = 512;
 static const uint32_t TP_TIMEOUT_MS = 1000;
 // Сколько разных CAN-ID может собираться одновременно (0x7E0..0x7E7 / 0x7E8..0x7EF).
 static const size_t TP_MAX_SESSIONS = 8;
+
+// ---------------------------- монитор шины ---------------------------------
+
+static const char *const TAG_BUS = "can_monitor";
+// Максимум отслеживаемых ID (стандартные и расширенные вместе).
+static const size_t MON_MAX_IDS = 128;
+// Через сколько миллисекунд ID считается "пропавшим" (не показывается в таблице).
+static const uint32_t MON_ID_EXPIRE_MS = 30000;
 
 // ---------------------------- утилиты --------------------------------------
 
@@ -690,6 +705,224 @@ inline void Reader::format_response_(uint32_t can_id, const uint8_t *data, size_
 // Единственный экземпляр декодера (function-local static - без ODR-проблем).
 inline Reader &reader() {
   static Reader instance;
+  return instance;
+}
+
+// ------------------------ монитор всей CAN-шины -----------------------------
+//
+// Считает все кадры, ведёт таблицу по каждому ID (количество, период,
+// последние данные) и решает, какие ID отдать UDS-декодеру.
+
+// Диагностические ID, которые имеет смысл разбирать как UDS/ISO-TP.
+static inline bool is_uds_id(uint32_t can_id) {
+  if (can_id == 0x7DF || can_id == 0x18DB33F1)  // функциональные запросы
+    return true;
+  if ((can_id & 0x7F8) == 0x7E0 || (can_id & 0x7F8) == 0x7E8)  // 11-бит
+    return true;
+  if ((can_id >> 16) == 0x18DA)  // 29-бит: 0x18DA<target><tester>
+    return true;
+  return false;
+}
+
+struct IdStat {
+  uint32_t can_id{0};
+  uint32_t count{0};
+  uint32_t last_ms{0};
+  uint32_t period_ms{0};
+  uint32_t last_log_ms{0};
+  bool used{false};
+  bool extended{false};
+  bool rtr{false};
+  uint8_t len{0};
+  uint8_t data[8]{};
+};
+
+class Monitor {
+ public:
+  // log_every_frame: печатать каждый кадр (осторожно, на 500 кбит/с это flood)
+  // throttle_ms:     не чаще одного лога на ID за период (0 = только новые ID)
+  // dump_ms:         период сводной таблицы ID (0 = не печатать)
+  void begin(bool log_every_frame, uint32_t throttle_ms, uint32_t dump_ms);
+
+  void on_frame(uint32_t can_id, bool extended, bool rtr, const uint8_t *data, size_t len);
+  void poll();
+
+  uint32_t unique_ids() const;
+  uint32_t fps() const { return this->fps_; }
+  uint32_t frames() const { return this->frames_; }
+
+ protected:
+  IdStat *slot_(uint32_t can_id, bool extended);
+  static void reset_(IdStat &entry, uint32_t can_id, bool extended);
+  void log_frame_(const IdStat &entry);
+  void dump_();
+
+  IdStat ids_[MON_MAX_IDS]{};
+  bool log_every_frame_{false};
+  uint32_t throttle_ms_{1000};
+  uint32_t dump_ms_{10000};
+  uint32_t last_dump_ms_{0};
+  uint32_t frames_{0};
+  uint32_t frames_second_{0};
+  uint32_t fps_{0};
+};
+
+inline void Monitor::begin(bool log_every_frame, uint32_t throttle_ms, uint32_t dump_ms) {
+  this->log_every_frame_ = log_every_frame;
+  this->throttle_ms_ = throttle_ms;
+  this->dump_ms_ = dump_ms;
+  this->last_dump_ms_ = esphome::millis();
+  ESP_LOGI(TAG_BUS, "монитор шины: %s, throttle=%u ms, таблица=%u ms",
+           log_every_frame ? "каждый кадр" : "не чаще 1 раза на ID за период",
+           static_cast<unsigned>(throttle_ms), static_cast<unsigned>(dump_ms));
+}
+
+inline void Monitor::reset_(IdStat &entry, uint32_t can_id, bool extended) {
+  entry.can_id = can_id;
+  entry.extended = extended;
+  entry.count = 0;
+  entry.last_ms = 0;
+  entry.period_ms = 0;
+  entry.last_log_ms = 0;
+  entry.rtr = false;
+  entry.len = 0;
+  entry.used = true;
+  std::memset(entry.data, 0, sizeof(entry.data));
+}
+
+inline IdStat *Monitor::slot_(uint32_t can_id, bool extended) {
+  IdStat *free_slot = nullptr;
+  IdStat *oldest = nullptr;
+  for (auto &entry : this->ids_) {
+    if (entry.used && entry.can_id == can_id && entry.extended == extended)
+      return &entry;
+    if (!entry.used && free_slot == nullptr)
+      free_slot = &entry;
+    if (entry.used && (oldest == nullptr || entry.last_ms < oldest->last_ms))
+      oldest = &entry;
+  }
+  if (free_slot != nullptr) {
+    reset_(*free_slot, can_id, extended);
+    return free_slot;
+  }
+  // Таблица заполнена - вытесняем самый давний ID.
+  reset_(*oldest, can_id, extended);
+  return oldest;
+}
+
+inline void Monitor::on_frame(uint32_t can_id, bool extended, bool rtr, const uint8_t *data, size_t len) {
+  this->frames_++;
+  this->frames_second_++;
+
+  const uint32_t now = esphome::millis();
+  IdStat *entry = this->slot_(can_id, extended);
+  const bool is_new = entry->count == 0;
+
+  if (entry->last_ms != 0) {
+    const uint32_t delta = now - entry->last_ms;
+    entry->period_ms = entry->period_ms == 0 ? delta : (entry->period_ms * 3 + delta) / 4;
+  }
+  entry->last_ms = now;
+  entry->count++;
+  entry->rtr = rtr;
+  entry->len = static_cast<uint8_t>(std::min<size_t>(len, 8));
+  if (entry->len > 0 && data != nullptr)
+    std::memcpy(entry->data, data, entry->len);
+
+  const bool should_log =
+      this->log_every_frame_ || (this->throttle_ms_ > 0 && now - entry->last_log_ms >= this->throttle_ms_);
+  if (is_new || should_log) {
+    if (is_new) {
+      char idbuf[24];
+      size_t pos = 0;
+      append(idbuf, sizeof(idbuf), pos, extended ? "0x%08X" : "0x%03X", static_cast<unsigned>(can_id));
+      ESP_LOGI(TAG_BUS, "новый ID %s%s (DLC %u)", extended ? "EXT " : "STD ", idbuf, entry->len);
+    }
+    this->log_frame_(*entry);
+    entry->last_log_ms = now;
+  }
+
+  if (!rtr && is_uds_id(can_id))
+    reader().handle_frame(can_id, data, len);
+}
+
+inline void Monitor::log_frame_(const IdStat &entry) {
+  char buf[96];
+  size_t pos = 0;
+  append(buf, sizeof(buf), pos, entry.extended ? "EXT 0x%08X" : "STD 0x%03X",
+         static_cast<unsigned>(entry.can_id));
+  append(buf, sizeof(buf), pos, " [%u]", entry.len);
+  if (entry.rtr)
+    append(buf, sizeof(buf), pos, " RTR");
+  else if (entry.len > 0) {
+    append(buf, sizeof(buf), pos, " ");
+    append_hex(buf, sizeof(buf), pos, entry.data, entry.len, 8);
+  }
+  ESP_LOGD(TAG_BUS, "%s", buf);
+}
+
+inline void Monitor::poll() {
+  this->fps_ = this->frames_second_;
+  this->frames_second_ = 0;
+
+  const uint32_t now = esphome::millis();
+  if (this->dump_ms_ > 0 && now - this->last_dump_ms_ >= this->dump_ms_) {
+    this->last_dump_ms_ = now;
+    this->dump_();
+  }
+}
+
+inline uint32_t Monitor::unique_ids() const {
+  const uint32_t now = esphome::millis();
+  uint32_t count = 0;
+  for (const auto &entry : this->ids_) {
+    if (entry.used && entry.count > 0 && now - entry.last_ms <= MON_ID_EXPIRE_MS)
+      count++;
+  }
+  return count;
+}
+
+inline void Monitor::dump_() {
+  IdStat *list[MON_MAX_IDS];
+  size_t n = 0;
+  const uint32_t now = esphome::millis();
+  for (auto &entry : this->ids_) {
+    if (entry.used && entry.count > 0 && now - entry.last_ms <= MON_ID_EXPIRE_MS)
+      list[n++] = &entry;
+  }
+
+  // Сортировка по ID (вставками - элементов немного, раз в несколько секунд).
+  for (size_t i = 1; i < n; i++) {
+    IdStat *key = list[i];
+    size_t j = i;
+    while (j > 0 && list[j - 1]->can_id > key->can_id) {
+      list[j] = list[j - 1];
+      j--;
+    }
+    list[j] = key;
+  }
+
+  ESP_LOGI(TAG_BUS, "--- шина: ID=%u, FPS=%u, всего кадров=%u ---", static_cast<unsigned>(n),
+           static_cast<unsigned>(this->fps_), static_cast<unsigned>(this->frames_));
+  for (size_t i = 0; i < n; i++) {
+    const IdStat *entry = list[i];
+    char buf[112];
+    size_t pos = 0;
+    append(buf, sizeof(buf), pos, entry->extended ? "EXT 0x%08X" : "STD 0x%03X",
+           static_cast<unsigned>(entry->can_id));
+    append(buf, sizeof(buf), pos, " cnt=%7u T=%5ums [%u] ", static_cast<unsigned>(entry->count),
+           static_cast<unsigned>(entry->period_ms), entry->len);
+    if (entry->rtr)
+      append(buf, sizeof(buf), pos, "RTR");
+    else
+      append_hex(buf, sizeof(buf), pos, entry->data, entry->len, 8);
+    ESP_LOGI(TAG_BUS, "%s", buf);
+  }
+}
+
+// Единственный экземпляр монитора.
+inline Monitor &monitor() {
+  static Monitor instance;
   return instance;
 }
 
