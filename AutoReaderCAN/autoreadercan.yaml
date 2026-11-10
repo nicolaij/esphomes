@@ -1,0 +1,162 @@
+# ---------------------------------------------------------------------------
+#  AutoReaderCAN
+#  Пассивный сниффер диагностики UDS (ISO 14229) на CAN-шине Geely.
+#
+#  Плата:   WEMOS LOLIN C3 Mini (ESP32-C3)
+#  Дисплей: SH1106 128x64, I2C (SDA=GPIO5, SCL=GPIO6, адрес 0x3C)
+#  CAN:     ESP32 TWAI, TX=GPIO0, RX=GPIO1, 500 kbit/s, режим LISTENONLY
+#           (ESP32 только слушает шину и ничего не передаёт)
+#
+#  В лог (USB Serial/JTAG) выводится расшифрованный поток UDS:
+#    [0x7E0] REQ ReadDataByIdentifier VIN(0xF190)
+#    [0x7E8] RSP ReadDataByIdentifier VIN(0xF190)="LSVAA2BM1LN1234567"
+#    [0x7E8] RSP ReadDTCInformation sub=0x02 DTC=2: P0301-2F[24] U0100-00[24]
+#    [0x7E8] NRC 0x31 requestOutOfRange (сервис 0x22)
+#
+#  На экран выводятся счётчики: кадров, расшифрованных пакетов, ошибок, NRC.
+# ---------------------------------------------------------------------------
+
+substitutions:
+  device_name: autoreadercan
+  device_friendly_name: AutoReaderCAN
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${device_friendly_name}
+  # Декодер UDS/ISO-TP лежит рядом с этим файлом.
+  includes:
+    - uds_decode.h
+
+esp32:
+  board: lolin_c3_mini
+  framework:
+    type: esp-idf
+
+# Логи идут по встроенному USB (на C3 Mini это USB Serial/JTAG).
+logger:
+  level: DEBUG
+  hardware_uart: USB_SERIAL_JTAG
+  logs:
+    # Сам canbus ругается только на ошибки, но на всякий случай приглушим.
+    canbus: WARN
+
+# I2C-дисплей (по заданию: SDA=GPIO5, SCL=GPIO6).
+# Внимание: на LOLIN C3 Mini отдельные пины с надписью SDA/SCL - это GPIO8/GPIO10.
+# Если дисплей подключён к ним, поменяйте пины здесь.
+i2c:
+  sda: GPIO5
+  scl: GPIO6
+  frequency: 400kHz
+  scan: true
+
+# Шрифт для дисплея (моноширинный, лежит рядом в папке fonts).
+font:
+  - file: "fonts/DejaVuSansMono.ttf"
+    id: font_ui
+    size: 10
+
+display:
+  - platform: ssd1306_i2c
+    model: "SH1106 128x64"
+    address: 0x3C
+    update_interval: 500ms
+    lambda: |-
+      auto &uds = uds_decode::reader();
+      it.printf(0, 0,  id(font_ui), "UDS Geely 500k LISTEN");
+      it.printf(0, 12, id(font_ui), "Frames %7u", static_cast<unsigned>(uds.frames()));
+      it.printf(0, 24, id(font_ui), "Pkts   %7u", static_cast<unsigned>(uds.packets()));
+      it.printf(0, 36, id(font_ui), "Err %2u  NRC %2u", static_cast<unsigned>(uds.errors()),
+                static_cast<unsigned>(uds.nrc()));
+      it.printf(0, 48, id(font_ui), "%.21s", uds.last().c_str());
+
+canbus:
+  - id: can_bus
+    platform: esp32_can
+    tx_pin: GPIO0          # TX трансивера (в LISTENONLY не используется, но нужен схеме)
+    rx_pin: GPIO1          # RX трансивера
+    bit_rate: 500KBPS
+    mode: LISTENONLY       # только приём, без ACK и без передачи
+    # ID по умолчанию для canbus.send (в LISTENONLY ничего не отправляется,
+    # но этого параметра требует схема ESPHome).
+    can_id: 0x7E0
+    use_extended_id: false
+    rx_queue_len: 64           # очередь приёма, чтобы не терять кадры в пике
+    max_frames_per_loop: 100   # успевать разбирать плотный поток
+    on_frame:
+      # Запросы диагностического тестера: 0x7E0..0x7E7
+      - can_id: 0x7E0
+        can_id_mask: 0x7F8
+        then:
+          - lambda: |-
+              uds_decode::reader().handle_frame(can_id, x.data(), x.size());
+      # Ответы ЭБУ: 0x7E8..0x7EF
+      - can_id: 0x7E8
+        can_id_mask: 0x7F8
+        then:
+          - lambda: |-
+              uds_decode::reader().handle_frame(can_id, x.data(), x.size());
+      # Функциональные (широковещательные) запросы тестера, например TesterPresent
+      - can_id: 0x7DF
+        then:
+          - lambda: |-
+              uds_decode::reader().handle_frame(can_id, x.data(), x.size());
+
+      # Если в автомобиле диагностика идёт 29-битными ID - раскомментируйте:
+      # - can_id: 0x18DAF100
+      #   can_id_mask: 0x1FFFFF00
+      #   use_extended_id: true
+      #   then:
+      #     - lambda: |-
+      #         uds_decode::reader().handle_frame(can_id, x.data(), x.size());
+      #
+      # Режим "слушать вообще всё" (для поиска диагностических ID):
+      # - can_id: 0x0
+      #   can_id_mask: 0x0
+      #   then:
+      #     - lambda: |-
+      #         uds_decode::reader().handle_frame(can_id, x.data(), x.size());
+
+# Раз в секунду: закрываем "зависшие" ISO-TP сообщения по таймауту
+# и отдаём счётчики в Home Assistant (если он настроен).
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          auto &uds = uds_decode::reader();
+          uds.poll();
+          id(uds_packets).publish_state(uds.packets());
+          id(uds_errors).publish_state(uds.errors());
+          id(uds_last).publish_state(uds.last());
+
+sensor:
+  - platform: template
+    name: "UDS packets"
+    id: uds_packets
+    update_interval: never
+    accuracy_decimals: 0
+    entity_category: diagnostic
+  - platform: template
+    name: "UDS errors"
+    id: uds_errors
+    update_interval: never
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: template
+    name: "UDS last message"
+    id: uds_last
+    update_interval: never
+    entity_category: diagnostic
+
+# --- Сеть / Home Assistant (по желанию) -----------------------------------
+# wifi:
+#   ssid: !secret wifi_ssid
+#   password: !secret wifi_password
+#   ap:
+#     ssid: "${device_name} fallback"
+#
+# api:
+#
+# ota:
+#   - platform: esphome
