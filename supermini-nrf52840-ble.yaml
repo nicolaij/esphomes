@@ -1,0 +1,212 @@
+# SuperMini nRF52840: BLE — AIOS, DIS, MCUmgr/SMP, Battery Service
+# ---------------------------------------------------------------------------
+# Прошивка поднимает GATT-сервер (zephyr_ble_server) и регистрирует:
+#
+#   Стандартный Battery Service
+#     0x180F / 0x2A19          read/notify 1 байт: 0..100 %
+#
+#   Device Information Service (DIS)
+#     0x180A / 0x2A29  Manufacturer Name  "ESPHome"
+#     0x180A / 0x2A24  Model Number       "SuperMini nRF52840"
+#     0x180A / 0x2A26  Firmware Revision  версия ESPHome
+#     0x180A / 0x2A27  Hardware Revision  "nRF52840"
+#     0x180A / 0x2A28  Software Revision  "ESPHome"
+#
+#   Automation IO Service (0x1815)
+#     0x2A56 Digital Input   read/notify   bit0 LED, bit1 Power
+#     0x2A57 Digital Output  read/write/notify bit0 LED, bit1 Power
+#     0x2A59 Analog Input    read/notify   float32 battery voltage, V
+#     0x2A59 Analog Input    read/notify   float32 CPU temperature, °C
+#
+#   Environmental Sensing Service (0x181A)
+#     0x2A6E Temperature     read/notify   sint16, 0.01 °C
+#
+#   MCUmgr / SMP (OTA и управление)
+#     8D53DC1D-1DB7-4CD3-868B-8A527460AA84  SMP service
+#     DA2E7828-FBCE-4E01-AE9E-261174997C48  SMP characteristic
+#     Группа 64 (per-user):
+#       команда 0 (read)  -> led, pwr, batt_mv, batt_pct, cpu_c
+#       команда 1 (write) <- led, pwr
+#     Обновление: esphome upload ... --device BLE / mcumgr-web
+#     SMP по USB: /dev/ttyACM1 (CDC1)
+#       python tools/mcumgr_control.py --serial /dev/ttyACM1 read
+#       python tools/mcumgr_control.py --serial /dev/ttyACM1 write --led on
+#
+# Проверка/управление:
+#   nRF Connect -> Automation IO, Battery Service, Device Information;
+#   MCUmgr -> SMP Service;
+#   логи ESPHome — по USB: esphome logs supermini-nrf52840-ble.yaml
+# Компоненты: ble_battery, ble_dis, ble_automation_io, mcumgr_control
+
+substitutions:
+  device_name: supermini-nrf52840-ble
+  friendly_name: "SuperMini nRF52840 BLE"
+  project_version: "1.0.0"
+  led_pin: P0.15
+  power_pin: P0.13
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    priority: -100
+    then:
+      - switch.turn_off: led_sw
+      - switch.turn_off: power_out
+
+nrf52:
+  board: adafruit_itsybitsy_nrf52840
+  dcdc: true
+  # 1200 bps touch по USB CDC -> вход в bootloader для esphome upload.
+  dfu: true
+
+logger:
+  level: INFO
+
+external_components:
+  - source:
+      type: local
+      path: my_components
+    components:
+      - ble_battery
+      - ble_dis
+      - ble_automation_io
+      - ble_environmental_sensing
+      - ble_current_time
+      - mcumgr_control
+
+# BLE-сервер: реклама, подключение, сопряжение (Numeric Comparison)
+zephyr_ble_server:
+  on_numeric_comparison_request:
+    then:
+      - logger.log:
+          format: "BLE passkey: %06d"
+          args: [passkey]
+      - ble_server.numeric_comparison_reply:
+          accept: true
+
+# --- Device Information Service (0x180A) -----------------------------------
+# Стандартные read-only характеристики; nRF Connect показывает их
+# в сервисе "Device Information".
+ble_dis:
+  manufacturer: "ESPHome"
+  model: "SuperMini nRF52840"
+  # 0x2A26: версия проекта; меняйте project_version в substitutions.
+  firmware_revision: "${project_version}"
+  hardware_revision: "nRF52840"
+  # 0x2A28: по умолчанию "ESPHome <версия> build <дата время>" (см. ble_dis).
+  # serial_number: "..."   # 0x2A25, при необходимости
+  # pnp:                    # 0x2A50, по умолчанию выключен
+  #   vendor_id_source: 1
+  #   vendor_id: 0
+  #   product_id: 0
+  #   product_version: 0x0100
+
+# --- MCUboot / MCUmgr (SMP) ------------------------------------------------
+# SMP для OTA и управления: BLE + отдельный USB CDC (/dev/ttyACM1).
+# Первый раз прошивается USB (MCUboot ставится вторым загрузчиком),
+# дальше OTA: esphome upload ... --device BLE или mcumgr-web.
+ota:
+  - platform: zephyr_mcumgr
+    transport:
+      ble: true
+      hardware_uart: CDC1
+
+# --- Светодиод и питание нагрузки на P0.13 ---------------------------------
+switch:
+  - platform: gpio
+    id: led_sw
+    name: "LED"
+    pin: ${led_pin}
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    id: power_out
+    name: "Power supply"
+    pin: ${power_pin}
+    restore_mode: ALWAYS_OFF
+
+# --- Батарея ---------------------------------------------------------------
+sensor:
+  # VDDH/5 через внутренний делитель nRF52840, gain 1/2 -> умножаем на 5
+  - platform: adc
+    id: batt_voltage
+    name: "Battery voltage"
+    pin: VDDHDIV5
+    update_interval: 60s
+    accuracy_decimals: 2
+    filters:
+      - multiply: 5.02
+      - clamp:
+          min_value: 2.0
+          max_value: 5.0
+
+  # Напряжение -> проценты (примерная кривая Li-ion/LiPo)
+  - platform: copy
+    id: batt_level
+    source_id: batt_voltage
+    name: "Battery level"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    device_class: battery
+    state_class: measurement
+    filters:
+      - calibrate_linear:
+          - 3.20 -> 0.0
+          - 3.50 -> 15.0
+          - 3.70 -> 45.0
+          - 3.85 -> 70.0
+          - 4.00 -> 85.0
+          - 4.20 -> 100.0
+      - clamp:
+          min_value: 0.0
+          max_value: 100.0
+
+  # Внутренний датчик температуры кристалла nRF52840
+  - platform: internal_temperature
+    id: cpu_temp
+    name: "CPU temperature"
+    update_interval: 30s
+
+# --- Стандартный Battery Service (0x180F / 0x2A19) -------------------------
+ble_battery:
+  battery_level: batt_level
+
+# --- Automation IO Service (0x1815) ---------------------------------------
+# Digital Output: bit0 = LED, bit1 = питание нагрузки.
+# Digital Input: те же состояния для чтения/уведомлений.
+# Analog Input: напряжение батареи (В) и температура кристалла (°C).
+ble_automation_io:
+  led_switch: led_sw
+  power_switch: power_out
+  battery_voltage: batt_voltage
+  cpu_temperature: cpu_temp
+
+# --- Environmental Sensing Service (0x181A) --------------------------------
+# Temperature 0x2A6E: sint16, 0.01 °C, read/notify.
+ble_environmental_sensing:
+  cpu_temperature: cpu_temp
+
+# --- Current Time Service (0x1805 / 0x2A2B) + ESPHome time ------------------
+# Время задаётся из PWA (write) и отдаётся read/notify. ESPHome time
+# использует тот же RTC2/LFCLK; доступны time.has_time, on_time, on_time_sync.
+time:
+  - platform: ble_current_time
+    id: nrf_time
+    on_time_sync:
+      - lambda: |-
+          auto t = id(nrf_time).now();
+          ESP_LOGI("nrf_time", "ESPHome time synced: %04d-%02d-%02d %02d:%02d:%02d",
+                   t.year, t.month, t.day_of_month, t.hour, t.minute, t.second);
+
+# --- MCUmgr: порты и телеметрия ---------------------------------------------
+# SMP group 64 (per-user):
+#   cmd 0 (read)  -> {"led":bool,"pwr":bool,"batt_mv":uint,
+#                     "batt_pct":float|null,"cpu_c":float|null}
+#   cmd 1 (write) <- {"led":bool,"pwr":bool}
+mcumgr_control:
+  led_switch: led_sw
+  power_switch: power_out
+  battery_voltage: batt_voltage
+  battery_level: batt_level
+  cpu_temperature: cpu_temp
